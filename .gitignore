@@ -5,6 +5,7 @@
 # also ignore temp files
 .sudo_as_admin_successful
 .bash_history
+.wget-hsts
 
 # and specific customizations/installations (such as fonts & nvm)
 .fonts/
