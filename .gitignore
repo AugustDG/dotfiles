@@ -1,0 +1,14 @@
+# ignore everything except hidden items
+*
+!.*
+
+# also ignore temp files
+.sudo_as_admin_successful
+.bash_history
+
+# and specific customizations/installations (such as fonts)
+.fonts/
+.fzf/
+
+# don't ignore program-specific configurations
+.config/nvim

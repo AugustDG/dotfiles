@@ -1,0 +1,13 @@
+# set custom complete menu
+Tab: menu-complete
+"\e[Z": menu-complete-backward
+
+# Make Ctrl-q display the list of possible completions
+Control-q: complete
+
+# set autocomplete from history
+"\e[A": history-search-backward
+"\e[B": history-search-forward
+
+# Display the list of matches when no further completion is possible
+set show-all-if-unmodified on
