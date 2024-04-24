@@ -6,9 +6,10 @@
 .sudo_as_admin_successful
 .bash_history
 
-# and specific customizations/installations (such as fonts)
+# and specific customizations/installations (such as fonts & nvm)
 .fonts/
 .fzf/
+.nvm/
 
 # don't ignore program-specific configurations
 .config/nvim
