@@ -6,6 +6,7 @@
 .sudo_as_admin_successful
 .bash_history
 .wget-hsts
+.nvidia-settings-rc
 
 # and specific customizations/installations (such as fonts & nvm)
 .fonts/
@@ -13,4 +14,4 @@
 .nvm/
 
 # don't ignore program-specific configurations
-.config/nvim
+!.config/nvim
