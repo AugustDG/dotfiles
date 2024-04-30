@@ -115,6 +115,11 @@ if ! shopt -oq posix; then
 	fi
 fi
 
+# set tmux as default shell
+if command -v tmux &> /dev/null && [ -n "$PS1" ] && [[ ! "$TERM" =~ screen ]] && [[ ! "$TERM" =~ tmux ]] && [ -z "$TMUX" ]; then
+  exec tmux
+fi
+
 # set fzf as bash auto complete
 source ~/.fzf/shell/key-bindings.bash
 
@@ -147,6 +152,7 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
+# setup NVM for NodeJS management
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
