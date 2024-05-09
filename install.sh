@@ -1,6 +1,7 @@
 #!/bin/bash
 
 echo "Installing git, tar, wget & other essentials..."
+sudo apt update >/dev/null 2>&1
 sudo apt install tar unzip wget curl git build-essential >/dev/null 2>&1
 
 echo "Installing nvim from GitHub at /opt/nvim..."
