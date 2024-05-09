@@ -5,7 +5,7 @@ sudo apt update >/dev/null 2>&1
 sudo apt install tar unzip wget curl git build-essential >/dev/null 2>&1
 
 echo "Installing nvim from GitHub at /opt/nvim..."
-curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz >/dev/null 2>&1
+curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz >/dev/null
 sudo rm -rf /opt/nvim
 sudo tar -C /opt -xzf nvim-linux64.tar.gz >/dev/null 2>&1
 rm nvim-linux64.tar.gz
