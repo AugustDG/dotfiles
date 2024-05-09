@@ -6,6 +6,7 @@
 .sudo_as_admin_successful
 .*_history
 .wget-hsts
+.motd_shown
 .nvidia-settings-rc
 
 # and specific customizations/installations (such as fonts & nvm)
