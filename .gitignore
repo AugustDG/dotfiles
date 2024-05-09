@@ -15,3 +15,6 @@
 
 # don't ignore program-specific configurations
 !.config/nvim
+
+# don't ignore the base install script
+!install.sh
