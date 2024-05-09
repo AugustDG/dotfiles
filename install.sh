@@ -1,8 +1,8 @@
 #!/bin/bash
 
 echo "Installing git, tar, wget & other essentials..."
-sudo apt update >/dev/null 2>&1
-sudo apt install tar unzip wget curl git build-essential >/dev/null 2>&1
+sudo apt update >/dev/null
+sudo apt install tar unzip wget curl git build-essential >/dev/null
 
 echo "Installing nvim from GitHub at /opt/nvim..."
 curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz >/dev/null
