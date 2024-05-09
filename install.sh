@@ -12,7 +12,7 @@ rm nvim-linux64.tar.gz
 echo "Installing Miniconda at $HOME/miniconda3..." 
 mkdir -p $HOME/miniconda3
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda3/miniconda.sh >/dev/null 2>&1
-bash $HOME/miniconda3/miniconda.sh -b -p $HOME/miniconda3 >/dev/null 2>&1
+bash $HOME/miniconda3/miniconda.sh -b -u -p $HOME/miniconda3 >/dev/null 2>&1
 rm $HOME/miniconda3/miniconda.sh
 
 echo "Installing GitHub CLI..."
@@ -52,11 +52,6 @@ cd $HOME/dotfiles && git submodule sync --recursive >/dev/null 2>&1 && cd $PWD
 cd $HOME/dotfiles && git submodule update --init --recursive >/dev/null 2>&1 && cd $PWD
 sudo cp -r $HOME/dotfiles/. $HOME
 sudo rm -r $HOME/dotfiles
-
-# removed because I found unecessary for a first install script
-# echo "Upgrading current packages (this may take many minutes)..."
-# sudo apt update >/dev/null 2>&1
-# sudo apt upgrade -y >/dev/null 2>&1
 
 echo "Autoremoving packages..."
 sudo apt autoremove -y >/dev/null 2>&1
