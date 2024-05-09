@@ -2,11 +2,12 @@
 *
 !.*
 
-# also ignore temp files
+# also ignore temp & computer-specific files
 .sudo_as_admin_successful
 .*_history
 .wget-hsts
 .motd_shown
+.fzf.bash
 .nvidia-settings-rc
 
 # and specific customizations/installations (such as fonts & nvm)
