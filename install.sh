@@ -1,11 +1,11 @@
 #!/bin/bash
 
 echo "Installing git, tar, wget & other essentials..."
-sudo apt update >/dev/null
-sudo apt install tar unzip wget curl git build-essential >/dev/null
+sudo apt-get update >/dev/null
+sudo apt-get install tar unzip wget curl git build-essential >/dev/null
 
 echo "Installing nvim from GitHub at /opt/nvim..."
-curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz >/dev/null
+curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz >/dev/null 2>&1
 sudo rm -rf /opt/nvim
 sudo tar -C /opt -xzf nvim-linux64.tar.gz >/dev/null 2>&1
 rm nvim-linux64.tar.gz
@@ -22,8 +22,8 @@ echo "Installing GitHub CLI..."
 && wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null 2>&1\
 && sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
 && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null 2>&1 \
-&& sudo apt update >/dev/null 2>&1\
-&& sudo apt install gh -y >/dev/null 2>&1
+&& sudo apt-get update >/dev/null 2>&1\
+&& sudo apt-get install gh -y >/dev/null 2>&1
 
 # Check if there's an authenticated user in GitHub CLI
 if gh auth status >/dev/null 2>&1; then
@@ -37,7 +37,7 @@ echo "Setting up git credentials from GitHub CLI..."
 gh auth setup-git
 
 echo "Installing tmux..."
-sudo apt install tmux >/dev/null 2>&1
+sudo apt-get install tmux >/dev/null 2>&1
 
 echo "Installing fzf from GitHub at $HOME/.fzf..."
 git clone --depth 1 https://github.com/junegunn/fzf.git $HOME/.fzf >/dev/null 2>&1
@@ -54,4 +54,4 @@ sudo cp -r $HOME/dotfiles/. $HOME
 sudo rm -r $HOME/dotfiles
 
 echo "Autoremoving packages..."
-sudo apt autoremove -y >/dev/null 2>&1
+sudo apt-get autoremove -y >/dev/null 2>&1
