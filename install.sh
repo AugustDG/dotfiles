@@ -46,14 +46,12 @@ echo "Installing oh-my-posh from install script at $HOME/bin/oh-my-posh..."
 mkdir -p $HOME/bin
 curl -s https://ohmyposh.dev/install.sh | bash -s -- -d $HOME/bin >/dev/null 2>&1
 
-echo "Downloading & applying personal dotfiles..."
-gh repo clone AugustDG/dotfiles dotfiles >/dev/null 2>&1
-cd dotfiles
-git submodule sync --recursive >/dev/null 2>&1
-git submodule update --init --recursive >/dev/null 2>&1
-sudo cp -r . ..
-cd ..
-sudo rm -r dotfiles
+echo "Downloading & applying personal dotfiles in $HOME..."
+gh repo clone AugustDG/dotfiles $HOME/dotfiles >/dev/null 2>&1
+cd $HOME/dotfiles && git submodule sync --recursive >/dev/null 2>&1 && cd $PWD
+cd $HOME/dotfiles && git submodule update --init --recursive >/dev/null 2>&1 && cd $PWD
+sudo cp -r $HOME/dotfiles/. $HOME
+sudo rm -r $HOME/dotfiles
 
 # removed because I found unecessary for a first install script
 # echo "Upgrading current packages (this may take many minutes)..."
