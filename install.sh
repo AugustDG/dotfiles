@@ -49,7 +49,7 @@ curl -s https://ohmyposh.dev/install.sh | bash -s -- -d $HOME/bin >/dev/null 2>&
 echo "Downloading & applying personal dotfiles..."
 gh repo clone AugustDG/dotfiles dotfiles >/dev/null 2>&1
 cd dotfiles
-git submodule sync --recursive
+git submodule sync --recursive >/dev/null 2>&1
 git submodule update --init --recursive >/dev/null 2>&1
 sudo cp -r . ..
 cd ..
