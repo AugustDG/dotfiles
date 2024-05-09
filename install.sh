@@ -47,9 +47,7 @@ mkdir -p $HOME/bin
 curl -s https://ohmyposh.dev/install.sh | bash -s -- -d $HOME/bin >/dev/null 2>&1
 
 echo "Downloading & applying personal dotfiles in $HOME..."
-git clone https://github.com/AugustDG/dotfiles.git $HOME/dotfiles >/dev/null 2>&1
-cd $HOME/dotfiles && git submodule sync --recursive >/dev/null 2>&1 && cd $PWD
-cd $HOME/dotfiles && git submodule update --init --recursive >/dev/null 2>&1 && cd $PWD
+git clone https://github.com/AugustDG/dotfiles.git $HOME/dotfiles --recursive >/dev/null 2>&1
 sudo cp -r $HOME/dotfiles/. $HOME
 sudo rm -r $HOME/dotfiles
 
