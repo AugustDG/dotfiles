@@ -14,6 +14,7 @@
 .fonts/
 .fzf/
 .nvm/
+.tmux/
 
 # don't ignore program-specific configurations
 !.config/nvim
