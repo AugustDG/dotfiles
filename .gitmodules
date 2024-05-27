@@ -4,3 +4,12 @@
 [submodule ".tmux/plugins/minimal-tmux-status"]
 	path = .tmux/plugins/minimal-tmux-status
 	url = https://github.com/niksingh710/minimal-tmux-status
+[submodule ".tmux/plugins/tmux"]
+	path = .tmux/plugins/tmux
+	url = https://github.com/dracula/tmux
+[submodule ".tmux/plugins/tmux-sensible"]
+	path = .tmux/plugins/tmux-sensible
+	url = https://github.com/tmux-plugins/tmux-sensible
+[submodule ".tmux/plugins/tpm"]
+	path = .tmux/plugins/tpm
+	url = https://github.com/tmux-plugins/tpm
