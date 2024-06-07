@@ -10,14 +10,17 @@
 .fzf.bash
 .nvidia-settings-rc
 
-# and specific customizations/installations (such as fonts & nvm)
-.fonts/
+# and specific customizations/installations (such as nvm)
 .fzf/
 .nvm/
 
 # don't ignore program-specific configurations
 !.config/nvim
 !.tmux/
+
+# don't ignore fonts (tiring to always install the same ones)
+!.fonts/*.ttf
+!.fonts/*.otf
 
 # don't ignore the base install script
 !install.sh
