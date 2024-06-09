@@ -16,7 +16,10 @@
 
 # don't ignore program-specific configurations
 !.config/nvim
+!.config/dunst
+!.config/rofi
 !.tmux/
+!.i3/
 
 # don't ignore fonts (tiring to always install the same ones)
 !.fonts/*.ttf
