@@ -9,6 +9,7 @@
 .motd_shown
 .fzf.bash
 .nvidia-settings-rc
+.[Xx]*
 
 # and specific customizations/installations (such as nvm)
 .fzf/
