@@ -52,6 +52,7 @@ git clone https://github.com/AugustDG/dotfiles.git $HOME/dotfiles --recursive >/
 sudo chown -R $USER $HOME/dotfiles
 sudo cp -r $HOME/dotfiles/. $HOME
 sudo rm -r $HOME/dotfiles
+sudo chown -R $USER .git .config/nvim/.git
 
 echo "Autoremoving packages..."
 sudo apt-get autoremove -y >/dev/null 2>&1
