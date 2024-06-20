@@ -13,3 +13,6 @@
 [submodule ".tmux/plugins/tpm"]
 	path = .tmux/plugins/tpm
 	url = https://github.com/tmux-plugins/tpm
+[submodule ".i3"]
+	path = .i3
+	url = https://github.com/AugustDG/i3-config
