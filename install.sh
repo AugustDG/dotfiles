@@ -60,9 +60,9 @@ curl -s https://ohmyposh.dev/install.sh | bash -s -- -d $HOME/bin
 
 echo "Downloading & applying personal dotfiles in $HOME..."
 git clone https://github.com/AugustDG/dotfiles.git $HOME/dotfiles --recursive 
+sudo chmod -R ugo+rwx dotfiles
 sudo cp -r $HOME/dotfiles/. $HOME
 sudo rm -r $HOME/dotfiles
-sudo chmod -R ugo+rwx .git .config/nvim/.git .i3/.git
 
 echo "Autoremoving packages..."
 sudo apt-get autoremove -y 
