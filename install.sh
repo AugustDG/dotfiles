@@ -50,6 +50,9 @@ sudo apt-get install xsel
 echo "Installing tmux..."
 sudo apt-get install tmux 
 
+echo "Installing rofi..."
+sudo apt-get install rofi
+
 echo "Installing fzf from GitHub at $HOME/.fzf..."
 git clone --depth 1 https://github.com/junegunn/fzf.git $HOME/.fzf 
 $HOME/.fzf/install --key-bindings --completion --no-update-rc 
