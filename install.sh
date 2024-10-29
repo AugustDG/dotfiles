@@ -87,3 +87,5 @@ git-dot config status.showUntrackedFiles no
 
 echo "Autoremoving packages..."
 apt-get autoremove -y 
+
+echo "Make sure to restart your shell to see all the changes!"
