@@ -62,7 +62,7 @@ mkdir -p $HOME/bin
 curl -s https://ohmyposh.dev/install.sh | bash -s -- -d $HOME/bin 
 
 echo "Downloading & applying personal dotfiles in $HOME..."
-git clone https://github.com/AugustDG/dotfiles.git $HOME/.dot --recursive 
+git clone https://github.com/AugustDG/dotfiles.git $HOME/.dot --recursive --bare
 
 function git-dot {
   /usr/bin/git --git-dir=$HOME/.dot/ --work-tree=$HOME $@
