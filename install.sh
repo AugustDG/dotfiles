@@ -62,10 +62,24 @@ mkdir -p $HOME/bin
 curl -s https://ohmyposh.dev/install.sh | bash -s -- -d $HOME/bin 
 
 echo "Downloading & applying personal dotfiles in $HOME..."
-git clone https://github.com/AugustDG/dotfiles.git $HOME/dotfiles --recursive 
-sudo chmod -R ugo+rwx dotfiles
-sudo cp -r $HOME/dotfiles/. $HOME
-sudo rm -r $HOME/dotfiles
+git clone https://github.com/AugustDG/dotfiles.git $HOME/.dot --recursive 
+
+function git-dot {
+  /usr/bin/git --git-dir=$HOME/.dot/ --work-tree=$HOME $@
+}
+
+mkdir -p .dot-backup
+git-dot checkout
+
+if [ $? = 0 ]; then
+    echo "  Checked out dotfiles!";
+else
+    echo "  Backing up pre-existing dotfiles...";
+    git-dot checkout 2>&1 | egrep "\s+\." | awk {'print $1'} | xargs -I{} mv {} .dot-backup/{}
+fi;
+
+git-dot checkout
+git-dot config status.showUntrackedFiles no
 
 echo "Autoremoving packages..."
 sudo apt-get autoremove -y 

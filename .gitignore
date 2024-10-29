@@ -14,6 +14,9 @@
 .lesshst
 .dmrc
 
+# ignore source repo dotfiles
+.dot/
+
 # and specific customizations/installations (such as nvm)
 .fzf/
 .nvm/
