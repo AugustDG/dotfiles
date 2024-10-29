@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "Changing directory to $HOME"
+cd $HOME
+
 echo "Installing git, tar, wget & other essentials..."
 apt-get update 
 apt-get -y install tar unzip wget curl git build-essential
@@ -62,7 +65,7 @@ mkdir -p $HOME/bin
 curl -s https://ohmyposh.dev/install.sh | bash -s -- -d $HOME/bin 
 
 echo "Downloading & applying personal dotfiles in $HOME..."
-git clone https://github.com/AugustDG/dotfiles.git $HOME/.dot --recursive --bare
+git clone https://github.com/AugustDG/dotfiles.git $HOME/.dot --bare
 
 function git-dot {
   /usr/bin/git --git-dir=$HOME/.dot/ --work-tree=$HOME $@
@@ -79,6 +82,7 @@ else
 fi;
 
 git-dot checkout
+git-dot submodule update --init --recursive
 git-dot config status.showUntrackedFiles no
 
 echo "Autoremoving packages..."
