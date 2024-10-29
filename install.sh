@@ -2,7 +2,7 @@
 
 echo "Installing git, tar, wget & other essentials..."
 sudo apt-get update 
-sudo apt-get install tar unzip wget curl git build-essential
+sudo apt-get -y install tar unzip wget curl git build-essential
 
 echo "Installing nvim from GitHub at /opt/nvim..."
 curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz 
@@ -45,13 +45,13 @@ echo "Setting up git credentials from GitHub CLI..."
 gh auth setup-git
 
 echo "Installing xsel..."
-sudo apt-get install xsel
+sudo apt-get install xsel -y
 
 echo "Installing tmux..."
-sudo apt-get install tmux 
+sudo apt-get install tmux -y
 
 echo "Installing rofi..."
-sudo apt-get install rofi
+sudo apt-get install rofi -y
 
 echo "Installing fzf from GitHub at $HOME/.fzf..."
 git clone --depth 1 https://github.com/junegunn/fzf.git $HOME/.fzf 
