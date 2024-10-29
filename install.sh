@@ -4,8 +4,8 @@ echo "Changing directory to $HOME"
 cd $HOME
 
 echo "Installing git, tar, wget & other essentials..."
-apt-get update 
-apt-get -y install tar unzip wget curl git build-essential
+sudo apt-get update 
+sudo apt-get -y install tar unzip wget curl git build-essential
 
 echo "Installing nvim from GitHub at /opt/nvim..."
 curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz 
@@ -48,13 +48,13 @@ echo "Setting up git credentials from GitHub CLI..."
 gh auth setup-git
 
 echo "Installing xsel..."
-apt-get install xsel -y
+sudo apt-get install xsel -y
 
 echo "Installing tmux..."
-apt-get install tmux -y
+sudo apt-get install tmux -y
 
 echo "Installing rofi..."
-apt-get install rofi -y
+sudo apt-get install rofi -y
 
 echo "Installing fzf from GitHub at $HOME/.fzf..."
 git clone --depth 1 https://github.com/junegunn/fzf.git $HOME/.fzf 
