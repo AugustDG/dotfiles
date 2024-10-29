@@ -15,7 +15,7 @@
 .dmrc
 
 # ignore source repo dotfiles
-.dot/
+.dot*/
 
 # and specific customizations/installations (such as nvm)
 .fzf/
