@@ -86,6 +86,6 @@ git-dot submodule update --init --recursive
 git-dot config status.showUntrackedFiles no
 
 echo "Autoremoving packages..."
-apt-get autoremove -y 
+sudo apt-get autoremove -y 
 
 echo "Make sure to restart your shell to see all the changes!"
