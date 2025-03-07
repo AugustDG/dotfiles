@@ -13,16 +13,13 @@ sudo rm -rf /opt/nvim
 sudo tar -C /opt -xzf nvim-linux64.tar.gz 
 rm nvim-linux64.tar.gz
 
-echo "Installing Miniconda at $HOME/miniconda3..." 
-if [ -d $HOME/miniconda3 ]; then
-    echo "Skipping Miniconda installation because it's already installed!"
-else
-    echo "Installing Miniconda at $HOME/miniconda3..."
-    mkdir -p $HOME/miniconda3
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda3/miniconda.sh 
-    bash $HOME/miniconda3/miniconda.sh -b -u -p $HOME/miniconda3 
-    rm $HOME/miniconda3/miniconda.sh
-fi
+echo "Installing pyenv (and dependencies) with default python 3.10..." 
+sudo apt-get -y install libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl\
+    libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+curl -fsSL https://pyenv.run | bash
+
+pyenv install 3.10
+pyenv global 3.10
 
 if gh --version ; then
     echo "Skipping GitHub CLI installation because it's already installed!"
