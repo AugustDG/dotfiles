@@ -18,8 +18,8 @@ sudo apt-get -y install libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqli
     libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
 curl -fsSL https://pyenv.run | bash
 
-pyenv install 3.10
-pyenv global 3.10
+.pyenv/bin/pyenv install 3.10
+.pyenv/bin/pyenv global 3.10
 
 if gh --version ; then
     echo "Skipping GitHub CLI installation because it's already installed!"
