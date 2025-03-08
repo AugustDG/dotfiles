@@ -10,7 +10,7 @@ sudo apt-get -y install tar unzip wget curl git build-essential
 echo "Installing nvim from GitHub at /opt/nvim..."
 curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz 
 sudo rm -rf /opt/nvim
-sudo tar -C /opt -xzf nvim-linux64.tar.gz 
+sudo tar -C /opt -xzf nvim-linux-x86-64.tar.gz 
 rm nvim-linux64.tar.gz
 
 echo "Installing pyenv (and dependencies) with default python 3.10..." 
