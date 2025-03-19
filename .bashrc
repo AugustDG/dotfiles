@@ -124,7 +124,7 @@ fi
 source ~/.fzf/shell/key-bindings.bash
 
 # set neovim as default text editor
-export PATH=$PATH:/opt/nvim-linux64/bin
+export PATH=$PATH:/opt/nvim-linux-x86_64/bin
 export VISUAL=nvim
 export EDITOR=$VISUAL
 
