@@ -11,7 +11,6 @@ echo "Installing nvim from GitHub at /opt/nvim..."
 curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz 
 sudo rm -rf /opt/nvim
 sudo tar -C /opt -xzf nvim-linux-x86_64.tar.gz 
-nvim-linux-x86_64.tar.gz 
 
 echo "Installing pyenv (and dependencies) with default python 3.10..." 
 sudo apt-get -y install libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl\
