@@ -1,18 +1,18 @@
-[submodule ".config/nvim"]
-	path = .config/nvim
-	url = https://github.com/AugustDG/nvim-config.git
-[submodule ".tmux/plugins/minimal-tmux-status"]
-	path = .tmux/plugins/minimal-tmux-status
-	url = https://github.com/niksingh710/minimal-tmux-status
-[submodule ".tmux/plugins/tmux"]
-	path = .tmux/plugins/tmux
-	url = https://github.com/dracula/tmux
-[submodule ".tmux/plugins/tmux-sensible"]
-	path = .tmux/plugins/tmux-sensible
-	url = https://github.com/tmux-plugins/tmux-sensible
-[submodule ".tmux/plugins/tpm"]
-	path = .tmux/plugins/tpm
-	url = https://github.com/tmux-plugins/tpm
 [submodule ".i3"]
 	path = .i3
 	url = https://github.com/AugustDG/i3-config
+[submodule ".config/yazi"]
+	path = .config/yazi
+	url = git@github.com:AugustDG/yazi-config.git
+[submodule ".config/tmux"]
+	path = .config/tmux
+	url = git@github.com:AugustDG/tmux-config.git
+[submodule ".config/opencode"]
+	path = .config/opencode
+	url = git@github.com:AugustDG/opencode-config.git
+[submodule ".config/zed"]
+	path = .config/zed
+	url = git@github.com:AugustDG/zed-config.git
+[submodule ".config/nvim"]
+	path = .config/nvim
+	url = git@github.com:AugustDG/nvim-config.git
