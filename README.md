@@ -29,6 +29,8 @@ cd ~/projects/dotfiles
 ```
 zsh/       → ~/.zshenv, ~/.zprofile, ~/.zshrc
 git/       → ~/.gitconfig
+claude/    → ~/.claude/{CLAUDE.md, settings.json, statusline-command.sh, skills/}
+             (greptileai/skills vendored as a submodule under skills/greptile)
 nvim/      → ~/.config/nvim      (submodule AugustDG/nvim-config)
 tmux/      → ~/.config/tmux      (submodule AugustDG/tmux-config)
 yazi/      → ~/.config/yazi      (submodule AugustDG/yazi-config)
@@ -41,7 +43,7 @@ To lay everything into `$HOME`:
 
 ```bash
 cd ~/projects/dotfiles
-stow -t "$HOME" zsh git nvim tmux yazi opencode zed
+stow -t "$HOME" zsh git claude nvim tmux yazi opencode zed
 # Linux with i3:
 stow -t "$HOME" i3
 ```

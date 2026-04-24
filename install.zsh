@@ -99,7 +99,7 @@ if (( need_backup )); then
 fi
 
 # --- 6. stow packages into $HOME ------------------------------------------
-local pkgs=(zsh git nvim tmux yazi opencode zed)
+local pkgs=(zsh git claude nvim tmux yazi opencode zed)
 if [[ "${STOW_I3:-0}" == "1" ]]; then
   pkgs+=(i3)
 fi

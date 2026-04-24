@@ -1,0 +1,38 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "allow": [
+      "*"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"$HOME/.claude/statusline-command.sh\""
+  },
+  "enabledPlugins": {
+    "swift-lsp@claude-plugins-official": true,
+    "skills@botpress-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "botpress-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "botpress/botpress-claude-marketplace",
+        "ref": "adk-263-point-adk-plugin-to-skills-repo"
+      }
+    }
+  },
+  "awaySummaryEnabled": false,
+  "voice": {
+    "enabled": true,
+    "mode": "hold"
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "auto",
+  "verbose": true,
+  "remoteControlAtStartup": true,
+  "voiceEnabled": true
+}
