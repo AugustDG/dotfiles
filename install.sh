@@ -55,8 +55,22 @@ done
 command -v brew >/dev/null 2>&1 || die "brew not on PATH after install"
 
 # --- 3. Install core toolchain --------------------------------------------
-log "Installing core packages: zsh git gh stow go"
-brew install zsh git gh stow go
+# Only install packages that aren't already present.
+core_packages=(zsh git gh stow go)
+to_install=()
+for pkg in "${core_packages[@]}"; do
+  if brew list --formula "$pkg" >/dev/null 2>&1; then
+    log "already installed: $pkg"
+  else
+    to_install+=("$pkg")
+  fi
+done
+if (( ${#to_install[@]} > 0 )); then
+  log "Installing: ${to_install[*]}"
+  brew install "${to_install[@]}"
+else
+  log "All core packages already installed"
+fi
 
 # --- 4. GitHub auth (needed before cloning because submodules use SSH) -----
 if [[ "${DOTFILES_SKIP_GH_AUTH:-0}" != "1" ]]; then

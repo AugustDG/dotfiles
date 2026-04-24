@@ -32,21 +32,39 @@ log "Using dotfiles at $DOTFILES_DIR"
 # Tap-hosted formulae that aren't in homebrew-core:
 #   - oh-my-posh: jandedobbeleer/oh-my-posh
 #   - bun:        oven-sh/bun
-log "Installing toolchain via brew"
-brew install \
-  tmux \
-  neovim \
-  yazi \
-  fzf \
-  atuin \
-  jandedobbeleer/oh-my-posh/oh-my-posh \
-  oven-sh/bun/bun \
-  nvm \
-  pnpm \
-  node \
-  ripgrep \
-  fd \
+local packages=(
+  tmux
+  neovim
+  yazi
+  fzf
+  atuin
+  jandedobbeleer/oh-my-posh/oh-my-posh
+  oven-sh/bun/bun
+  nvm
+  pnpm
+  node
+  ripgrep
+  fd
   jq
+)
+
+local to_install=()
+for pkg in $packages; do
+  # brew list accepts the short name even for tapped formulae
+  local name="${pkg##*/}"
+  if brew list --formula "$name" >/dev/null 2>&1; then
+    log "already installed: $name"
+  else
+    to_install+=("$pkg")
+  fi
+done
+
+if (( ${#to_install[@]} > 0 )); then
+  log "Installing: ${to_install[*]}"
+  brew install "${to_install[@]}"
+else
+  log "All brew packages already installed"
+fi
 
 # --- 2. znap ---------------------------------------------------------------
 if [[ ! -d "$HOME/.plugins/znap" ]]; then
