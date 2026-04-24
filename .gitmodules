@@ -1,18 +1,18 @@
 [submodule ".i3"]
-	path = .i3
+	path = i3/.i3
 	url = https://github.com/AugustDG/i3-config
 [submodule ".config/yazi"]
-	path = .config/yazi
+	path = yazi/.config/yazi
 	url = git@github.com:AugustDG/yazi-config.git
 [submodule ".config/tmux"]
-	path = .config/tmux
+	path = tmux/.config/tmux
 	url = git@github.com:AugustDG/tmux-config.git
 [submodule ".config/opencode"]
-	path = .config/opencode
+	path = opencode/.config/opencode
 	url = git@github.com:AugustDG/opencode-config.git
 [submodule ".config/zed"]
-	path = .config/zed
+	path = zed/.config/zed
 	url = git@github.com:AugustDG/zed-config.git
 [submodule ".config/nvim"]
-	path = .config/nvim
+	path = nvim/.config/nvim
 	url = git@github.com:AugustDG/nvim-config.git

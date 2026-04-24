@@ -1,39 +1,9 @@
-# ignore everything except hidden items
-*
-!.*
+# macOS
+.DS_Store
 
-# also ignore temp & computer-specific files
-.sudo_as_admin_successful
-.*_history
-.wget-hsts
-.motd_shown
-.fzf.bash
-.nvidia-settings-rc
-.[Xx]*
-.ICEauthority
-.lesshst
-.dmrc
+# Machine-local overrides / secrets — never tracked
+.zshrc.local
 
-# ignore source repo dotfiles
-.dot*/
-
-# and specific customizations/installations (such as nvm)
-.fzf/
-.nvm/
-.docker/
-.nvsdkm/
-.vscode-*/
-
-# don't ignore program-specific configurations
-!.config/nvim
-!.config/dunst
-!.config/rofi
-!.tmux/
-!.i3/
-
-# don't ignore fonts (tiring to always install the same ones)
-!.fonts/*.ttf
-!.fonts/*.otf
-
-# don't ignore the base install script
-!install.sh
+# Editor/tmp
+*.swp
+*.swo
