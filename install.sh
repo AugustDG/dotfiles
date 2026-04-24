@@ -85,21 +85,30 @@ else
   fi
 fi
 
-# --- 6. chsh to brew's zsh -------------------------------------------------
-BREW_ZSH="$(brew --prefix)/bin/zsh"
-[[ -x "$BREW_ZSH" ]] || die "brew zsh not executable at $BREW_ZSH"
+# --- 6. Resolve zsh + chsh -------------------------------------------------
+# Prefer brew's zsh (usually newer than the system one) but fall back to
+# anything on PATH so macOS /bin/zsh, distro-packaged zsh, etc. all work.
+ZSH_BIN=""
+for candidate in "$(brew --prefix)/bin/zsh" "$(command -v zsh || true)" /bin/zsh /usr/bin/zsh; do
+  if [[ -n "$candidate" && -x "$candidate" ]]; then
+    ZSH_BIN="$candidate"
+    break
+  fi
+done
+[[ -n "$ZSH_BIN" ]] || die "no usable zsh found on PATH after install"
+log "Using zsh at $ZSH_BIN"
 
 if [[ "${DOTFILES_SKIP_CHSH:-0}" != "1" ]]; then
-  if ! grep -Fxq "$BREW_ZSH" /etc/shells 2>/dev/null; then
-    log "Adding $BREW_ZSH to /etc/shells (sudo)"
-    echo "$BREW_ZSH" | sudo tee -a /etc/shells >/dev/null
+  if ! grep -Fxq "$ZSH_BIN" /etc/shells 2>/dev/null; then
+    log "Adding $ZSH_BIN to /etc/shells (sudo)"
+    echo "$ZSH_BIN" | sudo tee -a /etc/shells >/dev/null
   fi
-  if [[ "$SHELL" != "$BREW_ZSH" ]]; then
-    log "Changing login shell to $BREW_ZSH"
-    chsh -s "$BREW_ZSH" || warn "chsh failed; set your shell manually"
+  if [[ "$SHELL" != "$ZSH_BIN" ]]; then
+    log "Changing login shell to $ZSH_BIN"
+    chsh -s "$ZSH_BIN" || warn "chsh failed; set your shell manually"
   fi
 fi
 
 # --- 7. Hand off to stage 2 ------------------------------------------------
 log "Handing off to install.zsh"
-exec "$BREW_ZSH" "$DOTFILES_DIR/install.zsh" "$@"
+exec "$ZSH_BIN" "$DOTFILES_DIR/install.zsh" "$@"
