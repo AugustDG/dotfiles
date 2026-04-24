@@ -29,6 +29,9 @@ DOTFILES_DIR="${DOTFILES_DIR:-${${(%):-%x}:A:h}}"
 log "Using dotfiles at $DOTFILES_DIR"
 
 # --- 1. Toolchain ----------------------------------------------------------
+# Tap-hosted formulae that aren't in homebrew-core:
+#   - oh-my-posh: jandedobbeleer/oh-my-posh
+#   - bun:        oven-sh/bun
 log "Installing toolchain via brew"
 brew install \
   tmux \
@@ -36,8 +39,8 @@ brew install \
   yazi \
   fzf \
   atuin \
-  oh-my-posh \
-  bun \
+  jandedobbeleer/oh-my-posh/oh-my-posh \
+  oven-sh/bun/bun \
   nvm \
   pnpm \
   node \
