@@ -48,14 +48,23 @@ func installCmd() *cobra.Command {
 				all = true
 			}
 
+			if !skipBootstrap {
+				fmt.Println()
+				inst := bootstrap.NewInstaller(nil, dotfilesDir)
+				if err := inst.RunBootstrap(); err != nil {
+					return fmt.Errorf("bootstrap failed: %w", err)
+				}
+				fmt.Println()
+			}
+
+			modules, err := config.DiscoverModules(dotfilesDir)
+			if err != nil {
+				return fmt.Errorf("discover modules: %w", err)
+			}
+
 			var selected []config.Module
 
 			if interactive {
-				modules, err := config.DiscoverModules(dotfilesDir)
-				if err != nil {
-					return fmt.Errorf("discover modules: %w", err)
-				}
-
 				m := tui.NewModel(modules)
 				p := tea.NewProgram(m)
 				finalModel, err := p.Run()
@@ -72,16 +81,7 @@ func installCmd() *cobra.Command {
 					fmt.Println("No modules selected.")
 					return nil
 				}
-
-				return runInstall(p, dotfilesDir, selected, skipBootstrap)
-			}
-
-			modules, err := config.DiscoverModules(dotfilesDir)
-			if err != nil {
-				return fmt.Errorf("discover modules: %w", err)
-			}
-
-			if all {
+			} else if all {
 				currentOS := platform.DetectOS()
 				for _, m := range modules {
 					if m.SupportsOS(currentOS) {
@@ -102,7 +102,7 @@ func installCmd() *cobra.Command {
 				}
 			}
 
-			return runInstallNonInteractive(dotfilesDir, selected, skipBootstrap)
+			return runModuleInstall(dotfilesDir, selected)
 		},
 	}
 
@@ -111,38 +111,12 @@ func installCmd() *cobra.Command {
 	return cmd
 }
 
-func runInstall(p *tea.Program, dotfilesDir string, modules []config.Module, skipBootstrap bool) error {
-	m := tui.NewProgressOnlyModel()
-	p = tea.NewProgram(m)
-
-	go func() {
-		inst := bootstrap.NewInstaller(p, dotfilesDir)
-
-		if !skipBootstrap {
-			inst.RunBootstrap()
-		}
-
-		for _, mod := range modules {
-			inst.InstallModule(mod)
-		}
-
-		p.Send(tui.AllDoneMsg{})
-	}()
-
-	_, err := p.Run()
-	return err
-}
-
-func runInstallNonInteractive(dotfilesDir string, modules []config.Module, skipBootstrap bool) error {
+func runModuleInstall(dotfilesDir string, modules []config.Module) error {
 	m := tui.NewProgressOnlyModel()
 	p := tea.NewProgram(m)
 
 	go func() {
 		inst := bootstrap.NewInstaller(p, dotfilesDir)
-
-		if !skipBootstrap {
-			inst.RunBootstrap()
-		}
 
 		for _, mod := range modules {
 			inst.InstallModule(mod)

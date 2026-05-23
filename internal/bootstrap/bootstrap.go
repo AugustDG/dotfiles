@@ -39,9 +39,21 @@ func (inst *Installer) send(msg tea.Msg) {
 }
 
 func (inst *Installer) bootstrapStep(name string, fn func() error) error {
-	inst.send(tui.BootstrapStepMsg{Step: name})
+	if inst.program == nil {
+		fmt.Printf("  ... %s", name)
+	} else {
+		inst.send(tui.BootstrapStepMsg{Step: name})
+	}
 	err := fn()
-	inst.send(tui.BootstrapStepMsg{Step: name, Done: true, Err: err})
+	if inst.program == nil {
+		if err != nil {
+			fmt.Printf(" — failed: %s\n", err)
+		} else {
+			fmt.Print(" ✓\n")
+		}
+	} else {
+		inst.send(tui.BootstrapStepMsg{Step: name, Done: true, Err: err})
+	}
 	return err
 }
 
