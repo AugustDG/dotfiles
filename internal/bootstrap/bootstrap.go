@@ -93,6 +93,10 @@ func (inst *Installer) RunBootstrap() error {
 		return gitops.GHAuthLogin()
 	})
 
+	_ = inst.bootstrapStep("Set default shell to zsh", func() error {
+		return setDefaultShell()
+	})
+
 	_ = inst.bootstrapStep("Clone dotfiles repo", func() error {
 		if _, err := os.Stat(filepath.Join(inst.dotfilesDir, ".git")); err == nil {
 			return nil
@@ -272,6 +276,43 @@ func backupConflicts(homeDir string) error {
 		os.Rename(src, dst)
 	}
 	return nil
+}
+
+func setDefaultShell() error {
+	zshBin := ""
+	for _, candidate := range []string{
+		"/opt/homebrew/bin/zsh",
+		"/home/linuxbrew/.linuxbrew/bin/zsh",
+		"/usr/local/bin/zsh",
+		"/bin/zsh",
+		"/usr/bin/zsh",
+	} {
+		if _, err := os.Stat(candidate); err == nil {
+			zshBin = candidate
+			break
+		}
+	}
+	if zshBin == "" {
+		return fmt.Errorf("no zsh found")
+	}
+
+	if os.Getenv("SHELL") == zshBin {
+		return nil
+	}
+
+	shells, _ := os.ReadFile("/etc/shells")
+	if !strings.Contains(string(shells), zshBin) {
+		cmd := runWithSudo("tee", "-a", "/etc/shells")
+		cmd.Stdin = strings.NewReader(zshBin + "\n")
+		cmd.Stdout = nil
+		cmd.Run()
+	}
+
+	chsh := runWithSudo("chsh", "-s", zshBin)
+	if os.Getuid() != 0 {
+		chsh = runWithSudo("chsh", "-s", zshBin, os.Getenv("USER"))
+	}
+	return chsh.Run()
 }
 
 func sudoPrefix() []string {
