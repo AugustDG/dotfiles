@@ -1,0 +1,3 @@
+name = "git"
+description = "Git config (.gitconfig)"
+os = ["darwin", "linux"]

@@ -1,0 +1,3 @@
+name = "zed"
+description = "Zed editor settings"
+os = ["darwin", "linux"]

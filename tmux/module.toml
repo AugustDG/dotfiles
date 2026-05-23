@@ -1,0 +1,9 @@
+name = "tmux"
+description = "Terminal multiplexer config + TPM plugins"
+os = ["darwin", "linux"]
+
+[deps]
+brew = ["tmux"]
+
+[hooks]
+post_install = "~/.config/tmux/plugins/tpm/bin/install_plugins"

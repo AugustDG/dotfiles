@@ -1,0 +1,9 @@
+name = "nvim"
+description = "Neovim config (Lazy plugin manager)"
+os = ["darwin", "linux"]
+
+[deps]
+brew = ["neovim"]
+
+[hooks]
+post_install = "nvim --headless \"+Lazy! sync\" +qa"

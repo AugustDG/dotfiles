@@ -1,0 +1,3 @@
+name = "i3"
+description = "i3 window manager + dunst notifications"
+os = ["linux"]

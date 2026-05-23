@@ -1,0 +1,6 @@
+name = "yazi"
+description = "Yazi file manager config"
+os = ["darwin", "linux"]
+
+[deps]
+brew = ["yazi"]
