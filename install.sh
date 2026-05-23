@@ -30,9 +30,12 @@ INSTALL_DIR="${DOTFILES_INSTALL_DIR:-$HOME/.local/bin}"
 mkdir -p "$INSTALL_DIR"
 
 log "Downloading $BINARY..."
-if ! curl -fsSL "$URL" -o "${INSTALL_DIR}/dotfiles"; then
+TMPFILE="$(mktemp)"
+if ! curl -fsSL "$URL" -o "$TMPFILE"; then
+  rm -f "$TMPFILE"
   die "Failed to download from $URL"
 fi
+mv "$TMPFILE" "${INSTALL_DIR}/dotfiles"
 chmod +x "${INSTALL_DIR}/dotfiles"
 
 export PATH="$INSTALL_DIR:$PATH"
