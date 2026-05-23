@@ -47,3 +47,14 @@ func DotfilesDir() string {
 func IsInteractive() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
 }
+
+// HasTTY returns true if /dev/tty is available (a real terminal exists even
+// when stdin is piped, e.g. curl | bash).
+func HasTTY() bool {
+	f, err := os.Open("/dev/tty")
+	if err != nil {
+		return false
+	}
+	f.Close()
+	return true
+}

@@ -87,7 +87,7 @@ func (inst *Installer) RunBootstrap() error {
 		if gitops.IsGHAuthenticated() {
 			return nil
 		}
-		if !platform.IsInteractive() {
+		if !platform.HasTTY() {
 			return nil
 		}
 		return gitops.GHAuthLogin()
