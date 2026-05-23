@@ -27,7 +27,13 @@ func GHAuthLogin() error {
 		"--hostname", "github.com",
 		"--git-protocol", "ssh",
 		"--web")
-	login.Stdin = os.Stdin
+	tty, err := os.Open("/dev/tty")
+	if err != nil {
+		login.Stdin = os.Stdin
+	} else {
+		login.Stdin = tty
+		defer tty.Close()
+	}
 	login.Stdout = os.Stdout
 	login.Stderr = os.Stderr
 
@@ -68,7 +74,6 @@ func CloneRepo(url, dest string) error {
 }
 
 // InitSubmodules initializes and updates specific submodule paths.
-// Falls back to rewriting SSH URLs to HTTPS if SSH auth fails.
 func InitSubmodules(dotfilesDir string, modulePaths []string) error {
 	for _, p := range modulePaths {
 		cmd := exec.Command("git", "-C", dotfilesDir,
@@ -76,18 +81,7 @@ func InitSubmodules(dotfilesDir string, modulePaths []string) error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			// SSH failed — rewrite URL to HTTPS and retry
-			rewrite := exec.Command("git", "-C", dotfilesDir,
-				"config", "--global", "url.https://github.com/.insteadOf", "git@github.com:")
-			rewrite.Run()
-
-			retry := exec.Command("git", "-C", dotfilesDir,
-				"submodule", "update", "--init", "--recursive", "--", p)
-			retry.Stdout = os.Stdout
-			retry.Stderr = os.Stderr
-			if retryErr := retry.Run(); retryErr != nil {
-				return fmt.Errorf("submodule init %s: %w", p, retryErr)
-			}
+			return fmt.Errorf("submodule init %s: %w", p, err)
 		}
 	}
 	return nil
