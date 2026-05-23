@@ -13,6 +13,7 @@ import (
 	"github.com/AugustDG/dotfiles/internal/config"
 	gitops "github.com/AugustDG/dotfiles/internal/git"
 	"github.com/AugustDG/dotfiles/internal/platform"
+	"github.com/AugustDG/dotfiles/internal/runner"
 	"github.com/AugustDG/dotfiles/internal/stow"
 	"github.com/AugustDG/dotfiles/internal/tui"
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,6 +23,7 @@ type Installer struct {
 	program     *tea.Program
 	dotfilesDir string
 	homeDir     string
+	Verbose     bool
 }
 
 func NewInstaller(p *tea.Program, dotfilesDir string) *Installer {
@@ -176,8 +178,7 @@ func (inst *Installer) InstallModule(mod config.Module) tui.ModuleResult {
 		hookCmd := platform.ExpandHome(mod.Hooks.PostInstall)
 		inst.send(tui.StepStartMsg{Module: mod.Name, Step: "Post-install hook"})
 		cmd := exec.Command("bash", "-c", hookCmd)
-		cmd.Stdout = nil
-		cmd.Stderr = nil
+		runner.ConfigureCmd(cmd)
 		err := cmd.Run()
 		inst.send(tui.StepDoneMsg{Module: mod.Name, Step: "Post-install hook", Err: err})
 		if err != nil {
@@ -325,8 +326,7 @@ func sudoPrefix() []string {
 func runWithSudo(args ...string) *exec.Cmd {
 	full := append(sudoPrefix(), args...)
 	cmd := exec.Command(full[0], full[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	runner.ConfigureCmd(cmd)
 	return cmd
 }
 

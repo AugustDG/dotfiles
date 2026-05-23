@@ -4,6 +4,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/AugustDG/dotfiles/internal/runner"
 )
 
 // skipFiles lists filenames that should be ignored when checking stow status.
@@ -88,8 +90,7 @@ func IsStowed(dotfilesDir, moduleName, homeDir string) bool {
 func Stow(dotfilesDir, moduleName, homeDir string) error {
 	cmd := exec.Command("stow", "-d", dotfilesDir, "-t", homeDir,
 		"--ignore=module.toml", "-R", moduleName)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	runner.ConfigureCmd(cmd)
 	return cmd.Run()
 }
 
@@ -97,8 +98,7 @@ func Stow(dotfilesDir, moduleName, homeDir string) error {
 func Unstow(dotfilesDir, moduleName, homeDir string) error {
 	cmd := exec.Command("stow", "-d", dotfilesDir, "-t", homeDir,
 		"--ignore=module.toml", "-D", moduleName)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	runner.ConfigureCmd(cmd)
 	return cmd.Run()
 }
 

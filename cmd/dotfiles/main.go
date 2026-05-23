@@ -8,6 +8,7 @@ import (
 	"github.com/AugustDG/dotfiles/internal/config"
 	gitops "github.com/AugustDG/dotfiles/internal/git"
 	"github.com/AugustDG/dotfiles/internal/platform"
+	"github.com/AugustDG/dotfiles/internal/runner"
 	"github.com/AugustDG/dotfiles/internal/stow"
 	"github.com/AugustDG/dotfiles/internal/tui"
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,6 +23,8 @@ func main() {
 		Short:   "Manage dotfiles modules",
 		Version: version,
 	}
+
+	rootCmd.PersistentFlags().BoolVarP(&runner.Verbose, "verbose", "v", false, "Show detailed command output")
 
 	rootCmd.AddCommand(installCmd())
 	rootCmd.AddCommand(uninstallCmd())
