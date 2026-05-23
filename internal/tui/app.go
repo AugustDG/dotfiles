@@ -78,7 +78,10 @@ func (m Model) updatePicker(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) updateProgress(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg.(type) {
+	switch msg := msg.(type) {
+	case ModuleResultMsg:
+		m.results = append(m.results, msg.Result)
+		return m, nil
 	case AllDoneMsg:
 		m.progress, _ = m.progress.Update(msg)
 		m.view = ViewSummary

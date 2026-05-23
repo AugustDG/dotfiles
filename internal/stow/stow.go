@@ -86,7 +86,8 @@ func IsStowed(dotfilesDir, moduleName, homeDir string) bool {
 
 // Stow runs GNU stow to create symlinks for the given module.
 func Stow(dotfilesDir, moduleName, homeDir string) error {
-	cmd := exec.Command("stow", "-d", dotfilesDir, "-t", homeDir, "-R", moduleName)
+	cmd := exec.Command("stow", "-d", dotfilesDir, "-t", homeDir,
+		"--ignore=module.toml", "-R", moduleName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -94,7 +95,8 @@ func Stow(dotfilesDir, moduleName, homeDir string) error {
 
 // Unstow runs GNU stow to remove symlinks for the given module.
 func Unstow(dotfilesDir, moduleName, homeDir string) error {
-	cmd := exec.Command("stow", "-d", dotfilesDir, "-t", homeDir, "-D", moduleName)
+	cmd := exec.Command("stow", "-d", dotfilesDir, "-t", homeDir,
+		"--ignore=module.toml", "-D", moduleName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

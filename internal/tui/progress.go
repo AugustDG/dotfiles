@@ -33,6 +33,10 @@ type BootstrapStepMsg struct {
 	Err  error
 }
 
+type ModuleResultMsg struct {
+	Result ModuleResult
+}
+
 type AllDoneMsg struct{}
 
 type completedStep struct {

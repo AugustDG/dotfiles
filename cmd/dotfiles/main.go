@@ -119,7 +119,8 @@ func runModuleInstall(dotfilesDir string, modules []config.Module) error {
 		inst := bootstrap.NewInstaller(p, dotfilesDir)
 
 		for _, mod := range modules {
-			inst.InstallModule(mod)
+			result := inst.InstallModule(mod)
+			p.Send(tui.ModuleResultMsg{Result: result})
 		}
 
 		p.Send(tui.AllDoneMsg{})
