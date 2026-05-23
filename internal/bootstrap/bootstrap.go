@@ -58,6 +58,12 @@ func (inst *Installer) bootstrapStep(name string, fn func() error) error {
 }
 
 func (inst *Installer) RunBootstrap() error {
+	if runtime.GOOS == "linux" {
+		_ = inst.bootstrapStep("Install Linux prerequisites", func() error {
+			return installLinuxPrereqs()
+		})
+	}
+
 	if err := inst.bootstrapStep("Install Homebrew", func() error {
 		if brew.IsInstalled() {
 			return nil
@@ -261,6 +267,29 @@ func backupConflicts(homeDir string) error {
 		}
 		dst := filepath.Join(backupDir, f)
 		os.Rename(src, dst)
+	}
+	return nil
+}
+
+func installLinuxPrereqs() error {
+	if _, err := exec.LookPath("apt-get"); err == nil {
+		cmd := exec.Command("sudo", "apt-get", "update")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Run()
+
+		cmd = exec.Command("sudo", "apt-get", "install", "-y",
+			"build-essential", "procps", "curl", "file", "git")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
+	if _, err := exec.LookPath("yum"); err == nil {
+		cmd := exec.Command("sudo", "yum", "install", "-y",
+			"git", "curl", "procps-ng", "file", "gcc", "make")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
 	}
 	return nil
 }
