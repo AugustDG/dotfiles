@@ -102,7 +102,7 @@ func installCmd() *cobra.Command {
 				}
 			}
 
-			return runModuleInstall(dotfilesDir, selected)
+			return runModuleInstall(dotfilesDir, selected, interactive)
 		},
 	}
 
@@ -111,7 +111,11 @@ func installCmd() *cobra.Command {
 	return cmd
 }
 
-func runModuleInstall(dotfilesDir string, modules []config.Module) error {
+func runModuleInstall(dotfilesDir string, modules []config.Module, interactive bool) error {
+	if !interactive {
+		return runModuleInstallPlain(dotfilesDir, modules)
+	}
+
 	m := tui.NewProgressOnlyModel()
 	p := tea.NewProgram(m)
 
@@ -128,6 +132,41 @@ func runModuleInstall(dotfilesDir string, modules []config.Module) error {
 
 	_, err := p.Run()
 	return err
+}
+
+func runModuleInstallPlain(dotfilesDir string, modules []config.Module) error {
+	inst := bootstrap.NewInstaller(nil, dotfilesDir)
+
+	var results []tui.ModuleResult
+	for _, mod := range modules {
+		fmt.Printf("  %s... ", mod.Name)
+		result := inst.InstallModule(mod)
+		results = append(results, result)
+		switch result.Status {
+		case "installed":
+			if result.Warning != "" {
+				fmt.Printf("done (%s)\n", result.Warning)
+			} else {
+				fmt.Println("done")
+			}
+		case "skipped":
+			fmt.Printf("skipped (%s)\n", result.Warning)
+		case "failed":
+			fmt.Printf("failed (%s)\n", result.Warning)
+		}
+	}
+
+	fmt.Println()
+	for _, r := range results {
+		icon := "✓"
+		if r.Status == "failed" {
+			icon = "x"
+		} else if r.Status == "skipped" {
+			icon = "~"
+		}
+		fmt.Printf("  %s %-12s %s\n", icon, r.Name, r.Status)
+	}
+	return nil
 }
 
 func uninstallCmd() *cobra.Command {
