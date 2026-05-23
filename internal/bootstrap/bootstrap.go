@@ -271,25 +271,30 @@ func backupConflicts(homeDir string) error {
 	return nil
 }
 
+func sudoPrefix() []string {
+	if os.Getuid() == 0 {
+		return nil
+	}
+	return []string{"sudo"}
+}
+
+func runWithSudo(args ...string) *exec.Cmd {
+	full := append(sudoPrefix(), args...)
+	cmd := exec.Command(full[0], full[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd
+}
+
 func installLinuxPrereqs() error {
 	if _, err := exec.LookPath("apt-get"); err == nil {
-		cmd := exec.Command("sudo", "apt-get", "update")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Run()
-
-		cmd = exec.Command("sudo", "apt-get", "install", "-y",
-			"build-essential", "procps", "curl", "file", "git")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		runWithSudo("apt-get", "update").Run()
+		return runWithSudo("apt-get", "install", "-y",
+			"build-essential", "procps", "curl", "file", "git").Run()
 	}
 	if _, err := exec.LookPath("yum"); err == nil {
-		cmd := exec.Command("sudo", "yum", "install", "-y",
-			"git", "curl", "procps-ng", "file", "gcc", "make")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		return runWithSudo("yum", "install", "-y",
+			"git", "curl", "procps-ng", "file", "gcc", "make").Run()
 	}
 	return nil
 }
