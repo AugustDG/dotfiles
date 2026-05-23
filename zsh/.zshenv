@@ -1,4 +1,7 @@
-# Runs for every shell invocation — keep minimal.
-# Prefer .zprofile for login-shell env and .zshrc for interactive setup.
+. "$HOME/.cargo/env"
 
-[[ -r "$HOME/.cargo/env" ]] && . "$HOME/.cargo/env"
+# PATH
+export PATH="$HOME/bin:$PATH"
+export PATH="$PATH:/opt/homebrew/bin"
+export PATH="$PATH:/usr/local/bin"
+export PATH="$PATH:$HOME/go/bin"

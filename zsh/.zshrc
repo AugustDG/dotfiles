@@ -1,18 +1,22 @@
-# Interactive-shell config. Env/PATH setup lives in .zprofile.
-
-# --- Znap (plugin manager) ---
+# Znap
 [[ -r ~/.plugins/znap/znap.zsh ]] ||
     git clone --depth 1 -- \
         https://github.com/marlonrichert/zsh-snap.git ~/.plugins/znap
-source ~/.plugins/znap/znap.zsh
+source ~/.plugins/znap/znap.zsh  # Start Znap
 
-# macOS defaults to 256 open files; tmux + plugins want more
+# macOS defaults to 256 open files which is too low for tmux + plugins
 ulimit -n 10240 2>/dev/null
 
-# --- Prompt ---
+
+# Oh-my-posh
 eval "$(oh-my-posh init zsh --config "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/negligible.omp.json")"
 
-# --- History (shared across tmux panes/windows) ---
+# Export
+export CLOUD_API_ENDPOINT=https://api.botpress.cloud
+export CLOUD_PAT=bp_pat_3HPPphZXat59hj4zbTDokoHPOhx7zBhZhYoS
+export CLOUD_BOT_ID=b5b8b45c-d2f9-4af9-a3a7-4de3f76250f4
+
+# History — shared across all tmux panes/windows
 HISTFILE="$HOME/.zsh_history"
 HISTSIZE=100000
 SAVEHIST=100000
@@ -21,11 +25,10 @@ setopt HIST_IGNORE_ALL_DUPS   # remove older duplicate when a new one is added
 setopt HIST_REDUCE_BLANKS     # trim whitespace
 setopt HIST_IGNORE_SPACE      # prefix with space to keep a command out of history
 
-# --- Git aliases / wrappers ---
-alias gp='git pull'
-alias gs='git status'
-alias cdr='cd "$(git rev-parse --show-toplevel)"'
+# Editor
+export EDITOR=nvim
 
+# Aliases
 gcp() {
   if [[ -z "$1" ]]; then
     echo "usage: gcp <branch>"
@@ -33,6 +36,35 @@ gcp() {
   fi
   git checkout "$1" && git pull
 }
+
+alias gp='git pull'
+alias gs='git status'
+alias cdr='cd "$(git rev-parse --show-toplevel)"'
+alias codex='command codex --dangerously-bypass-approvals-and-sandbox'
+alias claude='claude --model "claude-opus-4-6[1m]" --effort high'
+
+cdw() {
+  if [[ -z "$1" ]]; then
+    git worktree list
+    return
+  fi
+  local dir
+  dir="$(git worktree list --porcelain 2>/dev/null \
+    | awk -v name="$1" '/^worktree / { path=$2 } /^branch / { sub(/.*\//, "", $2); if ($2 == name) { print path; exit } }')"
+  if [[ -z "$dir" ]]; then
+    echo "cdw: worktree '$1' not found"
+    return 1
+  fi
+  cd "$dir"
+}
+
+_cdw() {
+  local -a wts
+  wts=( $(git worktree list --porcelain 2>/dev/null \
+    | awk '/^branch / { sub(/.*\//, ""); print }') )
+  _describe 'worktree' wts
+}
+compdef _cdw cdw
 
 gb() {
   if [[ -z "$1" ]]; then
@@ -92,22 +124,39 @@ if (( $+functions[compdef] )); then
   compdef _git gagc=git-add
 fi
 
-# --- Claude CLI default flags ---
-alias claude='claude --model "claude-opus-4-6[1m]" --effort high'
 
-# --- bun completions ---
-[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+# nvm
+export NVM_DIR="$HOME/.nvm"
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && source "/opt/homebrew/opt/nvm/nvm.sh"
+# nvm end
 
-# --- yazi (press y to open, cd's into final dir) ---
-y() {
-  local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
-  command yazi "$@" --cwd-file="$tmp"
-  IFS= read -r -d '' cwd < "$tmp"
-  [ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
-  rm -f -- "$tmp"
+# pnpm
+export PNPM_HOME="/Users/augusto.pinheiro/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
+# bun completions
+[ -s "/Users/augusto.pinheiro/.bun/_bun" ] && source "/Users/augusto.pinheiro/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+# bun end
+
+# Yazi
+function y() { # press y to open yazi
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	command yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
+	rm -f -- "$tmp"
 }
+# yazi end
 
-# --- `use <target>` helper ---
+# commands
 use() {
   case "$1" in
     aws)
@@ -122,10 +171,15 @@ use() {
   esac
 }
 
-# --- atuin (shell-history + ZLE bindings) ---
-command -v atuin >/dev/null 2>&1 && eval "$(atuin init zsh)"
 
-# --- hopper (project jumper) ---
+. "$HOME/.atuin/bin/env"
+
+eval "$(atuin init zsh)"
+
+. "$HOME/.local/share/../bin/env"
+
+# >>> hopper >>>
+# hopper zsh integration
 _h_cd_pick() {
   local target
   if (( $# > 0 )); then
@@ -148,6 +202,7 @@ h() {
       _h_cd_pick
       ;;
     *)
+      # If args do not match subcommands, treat them as pick filters.
       _h_cd_pick "$@"
       ;;
   esac
@@ -174,3 +229,8 @@ h_widget() {
 }
 zle -N h_widget
 bindkey '^G' h_widget
+# <<< hopper <<<
+
+
+# Added by Antigravity CLI installer
+export PATH="/Users/augusto.pinheiro/.local/bin:$PATH"
