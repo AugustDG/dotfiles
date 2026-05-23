@@ -16,7 +16,7 @@ func IsInstalled() bool {
 // Install runs the official Homebrew install script non-interactively.
 func Install() error {
 	cmd := exec.Command("/bin/bash", "-c",
-		`$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)`)
+		`curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | /bin/bash`)
 	cmd.Env = append(os.Environ(), "NONINTERACTIVE=1")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
