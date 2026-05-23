@@ -24,7 +24,7 @@ case "$ARCH" in
 esac
 
 BINARY="dotfiles-${OS}-${ARCH}"
-URL="https://github.com/${REPO}/releases/latest/download/${BINARY}"
+URL="https://github.com/${REPO}/releases/download/latest/${BINARY}"
 
 INSTALL_DIR="${DOTFILES_INSTALL_DIR:-$HOME/.local/bin}"
 mkdir -p "$INSTALL_DIR"
