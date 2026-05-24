@@ -150,8 +150,7 @@ func (inst *Installer) InstallModule(mod config.Module) tui.ModuleResult {
 
 	if mod.HasSubmodule {
 		inst.send(tui.StepStartMsg{Module: mod.Name, Step: "Init submodules"})
-		subPaths := submodulePathsForModule(inst.dotfilesDir, mod.Name)
-		err := gitops.InitSubmodules(inst.dotfilesDir, subPaths)
+		err := gitops.InitSubmodules(inst.dotfilesDir, mod.SubmodulePaths)
 		inst.send(tui.StepDoneMsg{Module: mod.Name, Step: "Init submodules", Err: err})
 		if err != nil {
 			return tui.ModuleResult{Name: mod.Name, Status: "failed", Warning: err.Error()}

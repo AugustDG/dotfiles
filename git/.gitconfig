@@ -9,4 +9,3 @@
 	helper = !/usr/bin/gh auth git-credential
 [safe]
 	directory = /home/augus/
-	directory = *

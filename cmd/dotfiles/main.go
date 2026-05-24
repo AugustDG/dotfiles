@@ -173,15 +173,33 @@ func runModuleInstallPlain(dotfilesDir string, modules []config.Module) error {
 }
 
 func uninstallCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "uninstall <modules...>",
+	var all bool
+
+	cmd := &cobra.Command{
+		Use:   "uninstall [modules...]",
 		Short: "Unstow modules from $HOME",
-		Args:  cobra.MinimumNArgs(1),
+		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dotfilesDir := platform.DotfilesDir()
 			homeDir := platform.HomeDir()
 
-			for _, name := range args {
+			var names []string
+			if all {
+				modules, err := config.DiscoverModules(dotfilesDir)
+				if err != nil {
+					return err
+				}
+				for _, m := range modules {
+					names = append(names, m.Name)
+				}
+			} else {
+				if len(args) == 0 {
+					return fmt.Errorf("requires at least 1 arg(s), or use --all")
+				}
+				names = args
+			}
+
+			for _, name := range names {
 				fmt.Printf("Unstowing %s... ", name)
 				if err := stow.Unstow(dotfilesDir, name, homeDir); err != nil {
 					fmt.Printf("failed: %s\n", err)
@@ -192,6 +210,9 @@ func uninstallCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&all, "all", false, "Unstow all modules")
+	return cmd
 }
 
 func statusCmd() *cobra.Command {
@@ -208,12 +229,9 @@ func statusCmd() *cobra.Command {
 			var statuses []tui.ModuleStatus
 			for _, mod := range modules {
 				ms := tui.ModuleStatus{Module: mod}
-				if mod.HasSubmodule {
-					subPaths := findSubmodulePaths(dotfilesDir, mod.Name)
-					if len(subPaths) > 0 {
-						state, _ := gitops.SubmoduleStatus(dotfilesDir, subPaths[0])
-						ms.SubmoduleState = state
-					}
+				if mod.HasSubmodule && len(mod.SubmodulePaths) > 0 {
+					state, _ := gitops.SubmoduleStatus(dotfilesDir, mod.SubmodulePaths[0])
+					ms.SubmoduleState = state
 				}
 				statuses = append(statuses, ms)
 			}
@@ -259,12 +277,11 @@ func updateCmd() *cobra.Command {
 					continue
 				}
 
-				subPaths := findSubmodulePaths(dotfilesDir, mod.Name)
-				if len(subPaths) == 0 {
+				if len(mod.SubmodulePaths) == 0 {
 					continue
 				}
 
-				subDir := subPaths[0]
+				subDir := mod.SubmodulePaths[0]
 				absPath := subDir
 				if !os.IsPathSeparator(subDir[0]) {
 					absPath = fmt.Sprintf("%s/%s", dotfilesDir, subDir)

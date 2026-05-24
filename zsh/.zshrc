@@ -11,10 +11,8 @@ ulimit -n 10240 2>/dev/null
 # Oh-my-posh
 eval "$(oh-my-posh init zsh --config "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/negligible.omp.json")"
 
-# Export
-export CLOUD_API_ENDPOINT=https://api.botpress.cloud
-export CLOUD_PAT=bp_pat_3HPPphZXat59hj4zbTDokoHPOhx7zBhZhYoS
-export CLOUD_BOT_ID=b5b8b45c-d2f9-4af9-a3a7-4de3f76250f4
+# Machine-local secrets — see ~/.zshrc.local (created during bootstrap)
+
 
 # History — shared across all tmux panes/windows
 HISTFILE="$HOME/.zsh_history"
@@ -127,24 +125,11 @@ fi
 
 # nvm
 export NVM_DIR="$HOME/.nvm"
-[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && source "/opt/homebrew/opt/nvm/nvm.sh"
+[[ -n "${HOMEBREW_PREFIX:-}" && -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ]] && source "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
 # nvm end
 
-# pnpm
-export PNPM_HOME="/Users/augusto.pinheiro/Library/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
-esac
-# pnpm end
-
 # bun completions
-[ -s "/Users/augusto.pinheiro/.bun/_bun" ] && source "/Users/augusto.pinheiro/.bun/_bun"
-
-# bun
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-# bun end
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 # Yazi
 function y() { # press y to open yazi
@@ -176,7 +161,7 @@ use() {
 
 eval "$(atuin init zsh)"
 
-. "$HOME/.local/share/../bin/env"
+[[ -r "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env"
 
 # >>> hopper >>>
 # hopper zsh integration
@@ -230,7 +215,3 @@ h_widget() {
 zle -N h_widget
 bindkey '^G' h_widget
 # <<< hopper <<<
-
-
-# Added by Antigravity CLI installer
-export PATH="/Users/augusto.pinheiro/.local/bin:$PATH"

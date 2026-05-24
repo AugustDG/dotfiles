@@ -20,9 +20,10 @@ type Module struct {
 	Hooks       Hooks    `toml:"hooks"`
 
 	// Computed at runtime
-	Path         string
-	HasSubmodule bool
-	IsStowed     bool
+	Path           string
+	HasSubmodule   bool
+	SubmodulePaths []string
+	IsStowed       bool
 }
 
 // Deps lists package manager dependencies for a module.
@@ -79,7 +80,7 @@ func DiscoverModules(dotfilesDir string) ([]Module, error) {
 		}
 
 		// Check if any submodule path is inside this module's directory.
-		m.HasSubmodule = hasMatchingSubmodule(submodulePaths, entry.Name())
+		m.HasSubmodule, m.SubmodulePaths = matchingSubmodulePaths(submodulePaths, entry.Name())
 
 		// Check stow status.
 		m.IsStowed = stow.IsStowed(dotfilesDir, entry.Name(), homeDir)
@@ -104,9 +105,9 @@ func (m Module) SupportsOS(os string) bool {
 	return false
 }
 
-// parseGitmodules reads a .gitmodules file and returns a set of submodule paths.
-func parseGitmodules(path string) map[string]bool {
-	paths := make(map[string]bool)
+// parseGitmodules reads a .gitmodules file and returns all submodule paths.
+func parseGitmodules(path string) []string {
+	var paths []string
 
 	f, err := os.Open(path)
 	if err != nil {
@@ -120,7 +121,7 @@ func parseGitmodules(path string) map[string]bool {
 		if strings.HasPrefix(line, "path") {
 			parts := strings.SplitN(line, "=", 2)
 			if len(parts) == 2 {
-				paths[strings.TrimSpace(parts[1])] = true
+				paths = append(paths, strings.TrimSpace(parts[1]))
 			}
 		}
 	}
@@ -128,13 +129,13 @@ func parseGitmodules(path string) map[string]bool {
 	return paths
 }
 
-// hasMatchingSubmodule returns true if any submodule path starts with the
-// module name (i.e. the module directory contains a submodule).
-func hasMatchingSubmodule(submodulePaths map[string]bool, moduleName string) bool {
-	for p := range submodulePaths {
+// matchingSubmodulePaths returns whether the module has submodules and the matching paths.
+func matchingSubmodulePaths(submodulePaths []string, moduleName string) (bool, []string) {
+	var matches []string
+	for _, p := range submodulePaths {
 		if p == moduleName || strings.HasPrefix(p, moduleName+"/") {
-			return true
+			matches = append(matches, p)
 		}
 	}
-	return false
+	return len(matches) > 0, matches
 }
