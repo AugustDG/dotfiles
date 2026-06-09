@@ -26,6 +26,10 @@ dotfiles uninstall nvim tmux  # Unstow modules from $HOME
 dotfiles status               # Show which modules are stowed
 dotfiles update               # Pull latest submodules and re-stow
 dotfiles update tmux nvim     # Update specific modules
+
+dotfiles sync                 # Commit and push local changes, submodules first
+dotfiles sync tmux -m "msg"   # Sync specific modules with a commit message
+dotfiles sync --dry-run       # Show what would be committed and pushed
 ```
 
 ## Layout

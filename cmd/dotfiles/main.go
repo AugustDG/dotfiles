@@ -19,9 +19,10 @@ var version = "dev"
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:     "dotfiles",
-		Short:   "Manage dotfiles modules",
-		Version: version,
+		Use:          "dotfiles",
+		Short:        "Manage dotfiles modules",
+		Version:      version,
+		SilenceUsage: true,
 	}
 
 	rootCmd.PersistentFlags().BoolVarP(&runner.Verbose, "verbose", "v", false, "Show detailed command output")
@@ -30,6 +31,7 @@ func main() {
 	rootCmd.AddCommand(uninstallCmd())
 	rootCmd.AddCommand(statusCmd())
 	rootCmd.AddCommand(updateCmd())
+	rootCmd.AddCommand(syncCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -302,6 +304,161 @@ func updateCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func syncCmd() *cobra.Command {
+	var message string
+	var dryRun bool
+
+	cmd := &cobra.Command{
+		Use:   "sync [modules...]",
+		Short: "Commit and push local changes, submodules first",
+		Args:  cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dotfilesDir := platform.DotfilesDir()
+			modules, err := config.DiscoverModules(dotfilesDir)
+			if err != nil {
+				return err
+			}
+
+			// Submodule paths to recurse into, and root paths to stage.
+			var subPaths, stagePaths []string
+			if len(args) == 0 {
+				subPaths = gitops.Submodules(dotfilesDir)
+				stagePaths = []string{"-A"}
+			} else {
+				nameMap := make(map[string]config.Module)
+				for _, m := range modules {
+					nameMap[m.Name] = m
+				}
+				for _, name := range args {
+					m, ok := nameMap[name]
+					if !ok {
+						return fmt.Errorf("unknown module: %s", name)
+					}
+					subPaths = append(subPaths, m.SubmodulePaths...)
+					stagePaths = append(stagePaths, name)
+				}
+			}
+
+			anySynced := false
+			for _, sub := range subPaths {
+				synced, err := syncRepo(dotfilesDir+"/"+sub, sub, message, dryRun)
+				if err != nil {
+					return err
+				}
+				anySynced = anySynced || synced
+			}
+
+			synced, err := syncRoot(dotfilesDir, stagePaths, message, dryRun)
+			if err != nil {
+				return err
+			}
+			if !anySynced && !synced {
+				fmt.Println("Everything clean and pushed.")
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&message, "message", "m", "", `Commit message (default "Sync <repo>")`)
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be committed and pushed")
+	return cmd
+}
+
+// syncRepo commits and pushes the repo at path, recursing into its own
+// submodules first so every pointer bump references an already-pushed commit.
+// Returns whether anything was (or would be) committed or pushed.
+func syncRepo(path, name, message string, dryRun bool) (bool, error) {
+	synced := false
+	for _, sub := range gitops.Submodules(path) {
+		subSynced, err := syncRepo(path+"/"+sub, name+"/"+sub, message, dryRun)
+		if err != nil {
+			return synced, err
+		}
+		synced = synced || subSynced
+	}
+
+	if gitops.IsDirty(path) {
+		if _, err := gitops.CurrentBranch(path); err != nil {
+			return synced, fmt.Errorf("%s has changes but is on a detached HEAD; check out a branch first", name)
+		}
+		if dryRun {
+			fmt.Printf("%s: would commit local changes\n", name)
+		} else {
+			if err := gitops.Add(path, "-A"); err != nil {
+				return synced, fmt.Errorf("%s: stage: %w", name, err)
+			}
+			msg := message
+			if msg == "" {
+				msg = "Sync " + name
+			}
+			if err := gitops.Commit(path, msg); err != nil {
+				return synced, fmt.Errorf("%s: commit: %w", name, err)
+			}
+			fmt.Printf("%s: committed\n", name)
+		}
+		synced = true
+	}
+
+	if gitops.HasUnpushed(path) {
+		if dryRun {
+			fmt.Printf("%s: would push\n", name)
+		} else {
+			if err := gitops.Push(path); err != nil {
+				return synced, fmt.Errorf("%s: push: %w", name, err)
+			}
+			fmt.Printf("%s: pushed\n", name)
+		}
+		synced = true
+	}
+
+	return synced, nil
+}
+
+// syncRoot stages the given paths in the dotfiles repo (picking up submodule
+// pointer bumps from earlier syncs), then commits and pushes.
+func syncRoot(dotfilesDir string, stagePaths []string, message string, dryRun bool) (bool, error) {
+	synced := false
+
+	if gitops.IsDirty(dotfilesDir) {
+		if _, err := gitops.CurrentBranch(dotfilesDir); err != nil {
+			return false, fmt.Errorf("dotfiles repo has changes but is on a detached HEAD; check out a branch first")
+		}
+		if dryRun {
+			fmt.Println("dotfiles: would commit local changes")
+			synced = true
+		} else {
+			if err := gitops.Add(dotfilesDir, stagePaths...); err != nil {
+				return false, fmt.Errorf("dotfiles: stage: %w", err)
+			}
+			if gitops.HasStaged(dotfilesDir) {
+				msg := message
+				if msg == "" {
+					msg = "Sync dotfiles"
+				}
+				if err := gitops.Commit(dotfilesDir, msg); err != nil {
+					return false, fmt.Errorf("dotfiles: commit: %w", err)
+				}
+				fmt.Println("dotfiles: committed")
+				synced = true
+			}
+		}
+	}
+
+	if gitops.HasUnpushed(dotfilesDir) {
+		if dryRun {
+			fmt.Println("dotfiles: would push")
+		} else {
+			if err := gitops.Push(dotfilesDir); err != nil {
+				return synced, fmt.Errorf("dotfiles: push: %w", err)
+			}
+			fmt.Println("dotfiles: pushed")
+		}
+		synced = true
+	}
+
+	return synced, nil
 }
 
 func findSubmodulePaths(dotfilesDir, moduleName string) []string {

@@ -1,7 +1,9 @@
 package git
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -100,6 +102,95 @@ func PullSubmodule(path string) error {
 	cmd := exec.Command("git", "-C", path, "pull", "--ff-only")
 	runner.ConfigureCmd(cmd)
 	return cmd.Run()
+}
+
+// Submodules returns the relative paths of submodules declared in the
+// .gitmodules file of the repo at path.
+func Submodules(path string) []string {
+	cmd := exec.Command("git", "-C", path, "config",
+		"--file", ".gitmodules", "--get-regexp", `submodule\..*\.path`)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+
+	var paths []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		parts := strings.SplitN(line, " ", 2)
+		if len(parts) == 2 {
+			paths = append(paths, parts[1])
+		}
+	}
+	return paths
+}
+
+func IsDirty(path string) bool {
+	out, err := exec.Command("git", "-C", path, "status", "--porcelain").Output()
+	return err == nil && len(strings.TrimSpace(string(out))) > 0
+}
+
+// CurrentBranch returns the checked-out branch, or an error on detached HEAD.
+func CurrentBranch(path string) (string, error) {
+	out, err := exec.Command("git", "-C", path, "symbolic-ref", "--quiet", "--short", "HEAD").Output()
+	if err != nil {
+		return "", fmt.Errorf("detached HEAD")
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// HasUnpushed reports whether HEAD has commits not on its upstream. Returns
+// false when there is no upstream (e.g. detached HEAD in a submodule).
+func HasUnpushed(path string) bool {
+	out, err := exec.Command("git", "-C", path, "rev-list", "--count", "@{upstream}..HEAD").Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) != "0"
+}
+
+func Add(path string, specs ...string) error {
+	return runGit(append([]string{"-C", path, "add"}, specs...)...)
+}
+
+// HasStaged reports whether the index at path differs from HEAD.
+func HasStaged(path string) bool {
+	return exec.Command("git", "-C", path, "diff", "--cached", "--quiet").Run() != nil
+}
+
+func Commit(path, message string) error {
+	return runGit("-C", path, "commit", "-m", message)
+}
+
+func Push(path string) error {
+	return runGit("-C", path, "push")
+}
+
+// runGit runs a git command, surfacing stderr (minus hint lines) as the error.
+func runGit(args ...string) error {
+	cmd := exec.Command("git", args...)
+	var stderr bytes.Buffer
+	if runner.Verbose {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
+	} else {
+		cmd.Stdout = io.Discard
+		cmd.Stderr = &stderr
+	}
+	err := cmd.Run()
+	if err == nil {
+		return nil
+	}
+
+	var lines []string
+	for _, l := range strings.Split(strings.TrimSpace(stderr.String()), "\n") {
+		if !strings.HasPrefix(l, "hint:") {
+			lines = append(lines, l)
+		}
+	}
+	if len(lines) > 0 {
+		return fmt.Errorf("%s", strings.Join(lines, "\n"))
+	}
+	return err
 }
 
 func sshToHTTPS(sshURL string) string {
