@@ -234,3 +234,35 @@ func TestCompatibleModules(t *testing.T) {
 		t.Fatalf("expected x and z, got %v", names(got))
 	}
 }
+
+func TestSyncMessage(t *testing.T) {
+	cases := []struct {
+		name  string
+		paths []string
+		want  string
+	}{
+		{"empty falls back to bare label", nil, "sync"},
+		{"single module", []string{"zsh/.zshrc"}, "sync: zsh"},
+		{"dedups files in the same top dir", []string{"zsh/.zshrc", "zsh/.zshenv"}, "sync: zsh"},
+		{"groups sorted across areas",
+			[]string{"zsh/.zshrc", "cmd/dotfiles/sync.go", "internal/git/git.go"},
+			"sync: cmd, internal, zsh"},
+		{"root-level file kept whole", []string{".gitignore", "cmd/x.go"}, "sync: .gitignore, cmd"},
+	}
+	for _, c := range cases {
+		if got := syncMessage(c.paths); got != c.want {
+			t.Errorf("%s: syncMessage(%v) = %q, want %q", c.name, c.paths, got, c.want)
+		}
+	}
+}
+
+func TestTopLevelGroupsOverflow(t *testing.T) {
+	paths := []string{"a/x", "b/x", "c/x", "d/x", "e/x", "f/x", "g/x", "h/x"}
+	got := topLevelGroups(paths)
+	if len(got) != 7 { // 6 groups + overflow marker
+		t.Fatalf("expected 6 groups + overflow marker, got %d: %v", len(got), got)
+	}
+	if got[6] != "+2 more" {
+		t.Errorf("expected overflow marker %q, got %q", "+2 more", got[6])
+	}
+}

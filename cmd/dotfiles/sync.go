@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/AugustDG/dotfiles/internal/config"
 	gitops "github.com/AugustDG/dotfiles/internal/git"
@@ -127,19 +129,23 @@ func syncRepo(path, name, message string, dryRun bool) (bool, error) {
 			}
 		}
 		if dryRun {
-			fmt.Printf("%s: would commit local changes\n", name)
+			msg := message
+			if msg == "" {
+				msg = syncMessage(gitops.ChangedPaths(path))
+			}
+			fmt.Printf("%s: would commit (%s)\n", name, msg)
 		} else {
 			if err := gitops.Add(path, "-A"); err != nil {
 				return synced, fmt.Errorf("%s: stage: %w", name, err)
 			}
 			msg := message
 			if msg == "" {
-				msg = "Sync " + name
+				msg = syncMessage(gitops.StagedPaths(path))
 			}
 			if err := gitops.Commit(path, msg); err != nil {
 				return synced, fmt.Errorf("%s: commit: %w", name, err)
 			}
-			fmt.Printf("%s: committed\n", name)
+			fmt.Printf("%s: committed (%s)\n", name, msg)
 		}
 		synced = true
 	}
@@ -168,7 +174,11 @@ func syncRoot(dotfilesDir string, stagePaths []string, message string, dryRun bo
 			return false, fmt.Errorf("dotfiles repo has changes but is on a detached HEAD; check out a branch first")
 		}
 		if dryRun {
-			fmt.Println("dotfiles: would commit local changes")
+			msg := message
+			if msg == "" {
+				msg = syncMessage(gitops.ChangedPaths(dotfilesDir))
+			}
+			fmt.Printf("dotfiles: would commit (%s)\n", msg)
 			synced = true
 		} else {
 			if err := gitops.Add(dotfilesDir, stagePaths...); err != nil {
@@ -177,12 +187,12 @@ func syncRoot(dotfilesDir string, stagePaths []string, message string, dryRun bo
 			if gitops.HasStaged(dotfilesDir) {
 				msg := message
 				if msg == "" {
-					msg = "Sync dotfiles"
+					msg = syncMessage(gitops.StagedPaths(dotfilesDir))
 				}
 				if err := gitops.Commit(dotfilesDir, msg); err != nil {
 					return false, fmt.Errorf("dotfiles: commit: %w", err)
 				}
-				fmt.Println("dotfiles: committed")
+				fmt.Printf("dotfiles: committed (%s)\n", msg)
 				synced = true
 			}
 		}
@@ -201,4 +211,39 @@ func syncRoot(dotfilesDir string, stagePaths []string, message string, dryRun bo
 	}
 
 	return synced, nil
+}
+
+// syncMessage builds the default commit message when the user passes no -m,
+// summarising the committed paths by their top-level area — e.g.
+// "sync: cmd, internal, zsh". Replaces the old generic "Sync dotfiles".
+func syncMessage(paths []string) string {
+	groups := topLevelGroups(paths)
+	if len(groups) == 0 {
+		return "sync"
+	}
+	return "sync: " + strings.Join(groups, ", ")
+}
+
+// topLevelGroups returns the unique first path segments (or the whole name for
+// root-level files), sorted, capped with a "+N more" marker so the subject
+// line stays short.
+func topLevelGroups(paths []string) []string {
+	const max = 6
+	seen := make(map[string]bool, len(paths))
+	var groups []string
+	for _, p := range paths {
+		seg := p
+		if i := strings.IndexByte(p, '/'); i >= 0 {
+			seg = p[:i]
+		}
+		if seg != "" && !seen[seg] {
+			seen[seg] = true
+			groups = append(groups, seg)
+		}
+	}
+	sort.Strings(groups)
+	if len(groups) > max {
+		groups = append(groups[:max:max], fmt.Sprintf("+%d more", len(groups)-max))
+	}
+	return groups
 }

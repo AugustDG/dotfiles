@@ -243,6 +243,50 @@ func HasStaged(path string) bool {
 	return exec.Command("git", "-C", path, "diff", "--cached", "--quiet").Run() != nil
 }
 
+// StagedPaths returns the repo-relative paths staged for commit (index vs HEAD)
+// at path. Used to summarise what a commit will contain. Empty on error or when
+// nothing is staged.
+func StagedPaths(path string) []string {
+	out, err := exec.Command("git", "-C", path, "diff", "--cached", "--name-only").Output()
+	if err != nil {
+		return nil
+	}
+	return splitLines(string(out))
+}
+
+// ChangedPaths returns the repo-relative paths with any pending change — staged,
+// unstaged, or untracked — at path, i.e. what `git add -A` would stage. Used to
+// preview a commit message before staging (e.g. in a dry run).
+func ChangedPaths(path string) []string {
+	out, err := exec.Command("git", "-C", path, "status", "--porcelain").Output()
+	if err != nil {
+		return nil
+	}
+	var paths []string
+	for _, l := range splitLines(string(out)) {
+		if len(l) < 4 {
+			continue
+		}
+		// Porcelain v1 lines are "XY <path>"; renames are "<orig> -> <new>".
+		p := strings.TrimSpace(l[3:])
+		if i := strings.Index(p, " -> "); i >= 0 {
+			p = p[i+4:]
+		}
+		paths = append(paths, strings.Trim(p, `"`))
+	}
+	return paths
+}
+
+func splitLines(s string) []string {
+	var out []string
+	for _, l := range strings.Split(strings.TrimRight(s, "\n"), "\n") {
+		if l != "" {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
 func Commit(path, message string) error {
 	return runGit("-C", path, "commit", "-m", message)
 }
