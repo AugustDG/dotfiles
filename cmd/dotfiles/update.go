@@ -31,39 +31,46 @@ func runUpdate(args []string) error {
 		return err
 	}
 
-	targets, err := resolveOptionalModuleArgs(modules, args)
-	if err != nil {
-		return err
+	var targets []config.Module
+	if len(args) > 0 {
+		targets, err = resolveModuleArgs(modules, args)
+		if err != nil {
+			return err
+		}
+	} else {
+		targets = compatibleModules(modules, platform.DetectOS())
 	}
 
+	var errs []error
 	for _, mod := range targets {
-		updateModule(dotfilesDir, homeDir, mod)
+		errs = append(errs, updateModule(dotfilesDir, homeDir, mod))
 	}
-	return nil
+	return firstError(errs)
 }
 
-func updateModule(dotfilesDir, homeDir string, mod config.Module) {
+func updateModule(dotfilesDir, homeDir string, mod config.Module) error {
 	if !mod.HasSubmodule {
 		fmt.Printf("%-12s skipped (no submodule)\n", mod.Name)
-		return
+		return nil
 	}
 	if len(mod.SubmodulePaths) == 0 {
-		return
+		return nil
 	}
 
 	fmt.Printf("%-12s pulling... ", mod.Name)
 	if err := gitops.PullSubmodule(absSubmodulePath(dotfilesDir, mod.SubmodulePaths[0])); err != nil {
 		fmt.Printf("failed: %s\n", err)
-		return
+		return fmt.Errorf("%s: %w", mod.Name, err)
 	}
 
 	fmt.Print("stowing... ")
 	if err := stow.Stow(dotfilesDir, mod.Name, homeDir); err != nil {
 		fmt.Printf("failed: %s\n", err)
-		return
+		return fmt.Errorf("%s: %w", mod.Name, err)
 	}
 
 	fmt.Println("done")
+	return nil
 }
 
 func absSubmodulePath(dotfilesDir, submodulePath string) string {

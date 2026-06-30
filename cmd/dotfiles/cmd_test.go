@@ -89,33 +89,66 @@ func TestResolveModuleArgs(t *testing.T) {
 	}
 }
 
-func TestPullTargets(t *testing.T) {
-	mods := []config.Module{
-		{Name: "a", IsStowed: true},
-		{Name: "b", IsStowed: false},
-		{Name: "c", IsStowed: true},
-	}
-	// No args => only stowed modules.
-	got, err := pullTargets(mods, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got) != 2 || got[0].Name != "a" || got[1].Name != "c" {
-		t.Errorf("pullTargets(nil) = %v", names(got))
-	}
-	// Explicit args => exactly those.
-	got, _ = pullTargets(mods, []string{"b"})
-	if len(got) != 1 || got[0].Name != "b" {
-		t.Errorf("pullTargets([b]) = %v", names(got))
-	}
-}
-
 func names(mods []config.Module) []string {
 	var out []string
 	for _, m := range mods {
 		out = append(out, m.Name)
 	}
 	return out
+}
+
+// TestRunAdoptRollback verifies that when a later path fails to adopt, an
+// earlier already-moved file is restored to its original $HOME location rather
+// than left moved-but-unstowed. It does not require the stow binary because the
+// failure occurs before the stow step.
+func TestRunAdoptRollback(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	df := filepath.Join(root, "df")
+	mustMkdir(t, home)
+	mustMkdir(t, filepath.Join(df, "m"))
+	t.Setenv("HOME", home)
+	t.Setenv("DOTFILES_DIR", df)
+
+	aPath := filepath.Join(home, ".a")
+	bPath := filepath.Join(home, ".b")
+	mustWriteFile(t, aPath, "aaa")
+	mustWriteFile(t, bPath, "bbb")
+	// Conflicting .b already in the module makes the second adopt fail.
+	mustWriteFile(t, filepath.Join(df, "m", "module.toml"), "name='m'")
+	mustWriteFile(t, filepath.Join(df, "m", ".b"), "existing")
+
+	if err := runAdopt("m", []string{aPath, bPath}); err == nil {
+		t.Fatal("expected error when the second path conflicts")
+	}
+
+	fi, err := os.Lstat(aPath)
+	if err != nil {
+		t.Fatalf(".a was not restored to $HOME: %v", err)
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		t.Error(".a should be a regular file after rollback, not a symlink")
+	}
+	if data, _ := os.ReadFile(aPath); string(data) != "aaa" {
+		t.Error(".a content lost after rollback")
+	}
+	if _, err := os.Lstat(filepath.Join(df, "m", ".a")); err == nil {
+		t.Error("module should not retain .a after rollback")
+	}
+}
+
+func mustMkdir(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mustWriteFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestCompatibleModules(t *testing.T) {

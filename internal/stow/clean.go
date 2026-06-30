@@ -15,6 +15,13 @@ var heavyDirs = map[string]bool{
 	".cache":       true,
 }
 
+// heavyTopLevel names $HOME subtrees that are far too large to walk wholesale
+// (e.g. macOS ~/Library has millions of files). For modules that map into one,
+// only the leaf's exact directory is scanned rather than the whole top level.
+var heavyTopLevel = map[string]bool{
+	"Library": true,
+}
+
 // DanglingLink is a broken symlink under $HOME that points into the dotfiles
 // repo — typically left behind when a file is removed from a module.
 type DanglingLink struct {
@@ -53,11 +60,16 @@ func ModuleLeaves(dotfilesDir, moduleName string) []string {
 }
 
 // ScanRoots returns the directories to search recursively for dangling links.
-// It always includes ~/.config (the canonical config root) plus the top-level
-// $HOME entry each module maps into (e.g. ~/.claude, ~/Library, ~/.i3). The
-// shallow $HOME sweep — which catches top-level dotfile links regardless of
-// repo state — is handled separately by FindDangling, so this need not include
-// ~/.gitconfig and friends.
+// It always includes ~/.config (the canonical config root) plus, for each
+// module leaf, the top-level $HOME entry it maps into (e.g. ~/.claude, ~/.i3) —
+// except for heavy top levels like ~/Library, where only the leaf's own
+// directory is scanned to avoid walking millions of unrelated files. The
+// shallow $HOME sweep in FindDangling catches top-level dotfile links, so this
+// need not enumerate ~/.gitconfig and friends.
+//
+// Note: a link left after an entire top-level subtree is removed from a module
+// (so no surviving leaf references it) is only caught if that top level is
+// ~/.config or a direct child of $HOME; `clean` is best-effort maintenance.
 func ScanRoots(dotfilesDir, homeDir string, moduleNames []string) []string {
 	seen := make(map[string]bool)
 	var roots []string
@@ -74,6 +86,12 @@ func ScanRoots(dotfilesDir, homeDir string, moduleNames []string) []string {
 			top := rel
 			if i := strings.IndexRune(rel, filepath.Separator); i >= 0 {
 				top = rel[:i]
+			}
+			if heavyTopLevel[top] {
+				if dir := filepath.Dir(rel); dir != "." {
+					add(filepath.Join(homeDir, dir))
+				}
+				continue
 			}
 			add(filepath.Join(homeDir, top))
 		}

@@ -73,10 +73,11 @@ func repoSummary(dotfilesDir string) (tui.RepoSummary, bool) {
 	}
 	ahead, behind := gitops.AheadBehind(dotfilesDir)
 	return tui.RepoSummary{
-		Branch: branch,
-		Ahead:  ahead,
-		Behind: behind,
-		Dirty:  gitops.IsDirty(dotfilesDir),
+		Branch:     branch,
+		Ahead:      ahead,
+		Behind:     behind,
+		Dirty:      gitops.IsDirty(dotfilesDir),
+		NoUpstream: !gitops.HasUpstream(dotfilesDir),
 	}, true
 }
 

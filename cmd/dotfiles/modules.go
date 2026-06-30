@@ -41,13 +41,6 @@ func resolveModuleArgs(modules []config.Module, names []string) ([]config.Module
 	return selected, nil
 }
 
-func resolveOptionalModuleArgs(modules []config.Module, names []string) ([]config.Module, error) {
-	if len(names) == 0 {
-		return modules, nil
-	}
-	return resolveModuleArgs(modules, names)
-}
-
 func compatibleModules(modules []config.Module, osName string) []config.Module {
 	selected := make([]config.Module, 0, len(modules))
 	for _, mod := range modules {

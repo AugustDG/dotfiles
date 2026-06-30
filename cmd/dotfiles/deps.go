@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -52,7 +53,7 @@ func runDeps(args []string) error {
 		mod := mod
 		tasks = append(tasks, tui.Task{
 			Title: fmt.Sprintf("%s: %s", mod.Name, strings.Join(names, ", ")),
-			Run:   func() error { return bootstrap.InstallDeps(mod.Deps) },
+			Run:   func(context.Context) error { return bootstrap.InstallDeps(mod.Deps) },
 		})
 	}
 

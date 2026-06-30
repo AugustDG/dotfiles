@@ -259,7 +259,9 @@ func backupConflicts(homeDir string, targets []string) error {
 	}
 
 	backupDir := filepath.Join(homeDir, fmt.Sprintf(".dotfiles-backup-%s", time.Now().Format("20060102-150405")))
-	os.MkdirAll(backupDir, 0o755)
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
+		return fmt.Errorf("create backup dir: %w", err)
+	}
 
 	for _, f := range targets {
 		src := filepath.Join(homeDir, f)
@@ -268,30 +270,34 @@ func backupConflicts(homeDir string, targets []string) error {
 			continue
 		}
 		dst := filepath.Join(backupDir, f)
-		os.Rename(src, dst)
+		// Create parent dirs so nested backup_targets (e.g. ".config/x") work.
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return fmt.Errorf("backup %s: %w", f, err)
+		}
+		if err := os.Rename(src, dst); err != nil {
+			// Cross-device move or other rename failure: copy then remove.
+			if cpErr := exec.Command("cp", "-a", src, dst).Run(); cpErr != nil {
+				return fmt.Errorf("backup %s: %w", f, err)
+			}
+			if rmErr := os.RemoveAll(src); rmErr != nil {
+				return fmt.Errorf("backup %s: remove original: %w", f, rmErr)
+			}
+		}
 	}
 	return nil
 }
 
 func setDefaultShell() error {
-	zshBin := ""
-	for _, candidate := range []string{
-		"/opt/homebrew/bin/zsh",
-		"/home/linuxbrew/.linuxbrew/bin/zsh",
-		"/usr/local/bin/zsh",
-		"/bin/zsh",
-		"/usr/bin/zsh",
-	} {
-		if _, err := os.Stat(candidate); err == nil {
-			zshBin = candidate
-			break
-		}
-	}
+	zshBin := findZsh()
 	if zshBin == "" {
 		return fmt.Errorf("no zsh found")
 	}
 
-	if os.Getenv("SHELL") == zshBin {
+	// Always operate on the human user (under sudo, $USER is "root"; SUDO_USER
+	// holds the original account). Compare against the configured login shell —
+	// not $SHELL, which reflects the currently-running shell, not the default.
+	user := targetUser()
+	if currentLoginShell(user) == zshBin {
 		return nil
 	}
 
@@ -303,9 +309,60 @@ func setDefaultShell() error {
 		cmd.Run()
 	}
 
-	chsh := runner.Sudo("chsh", "-s", zshBin)
-	if os.Getuid() != 0 {
-		chsh = runner.Sudo("chsh", "-s", zshBin, os.Getenv("USER"))
+	// runner.Sudo prepends sudo only when not already root; passing the target
+	// user explicitly makes both the root and non-root paths change the right
+	// account.
+	return runner.Sudo("chsh", "-s", zshBin, user).Run()
+}
+
+func findZsh() string {
+	for _, candidate := range []string{
+		"/opt/homebrew/bin/zsh",
+		"/home/linuxbrew/.linuxbrew/bin/zsh",
+		"/usr/local/bin/zsh",
+		"/bin/zsh",
+		"/usr/bin/zsh",
+	} {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
 	}
-	return chsh.Run()
+	return ""
+}
+
+// targetUser returns the human account whose shell should be changed, resolving
+// the original user when running under sudo.
+func targetUser() string {
+	if u := os.Getenv("SUDO_USER"); u != "" && u != "root" {
+		return u
+	}
+	return os.Getenv("USER")
+}
+
+// currentLoginShell returns user's configured login shell from the user
+// database (Directory Service on macOS, passwd on Linux), or "" if unknown.
+func currentLoginShell(user string) string {
+	if user == "" {
+		return ""
+	}
+	if runtime.GOOS == "darwin" {
+		out, err := exec.Command("dscl", ".", "-read", "/Users/"+user, "UserShell").Output()
+		if err != nil {
+			return ""
+		}
+		fields := strings.Fields(string(out)) // "UserShell: /bin/zsh"
+		if len(fields) >= 2 {
+			return fields[len(fields)-1]
+		}
+		return ""
+	}
+	out, err := exec.Command("getent", "passwd", user).Output()
+	if err != nil {
+		return ""
+	}
+	parts := strings.Split(strings.TrimSpace(string(out)), ":")
+	if len(parts) >= 7 {
+		return parts[6]
+	}
+	return ""
 }

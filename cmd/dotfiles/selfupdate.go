@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,7 +48,7 @@ func runSelfUpdate() error {
 	errs, runErr := tui.RunTasks("Updating dotfiles CLI", []tui.Task{
 		{
 			Title: fmt.Sprintf("Download %s", asset),
-			Run:   func() error { return downloadBinary(url, target) },
+			Run:   func(ctx context.Context) error { return downloadBinary(ctx, url, target) },
 		},
 	})
 	if runErr != nil {
@@ -78,10 +79,16 @@ func executablePath() (string, error) {
 }
 
 // downloadBinary fetches url and atomically replaces target. It writes to a
-// temp file in the same directory (so rename stays on one filesystem), sets the
-// executable bit, then renames over the target.
-func downloadBinary(url, target string) error {
-	resp, err := http.Get(url)
+// temp file in the same directory (so rename stays on one filesystem), verifies
+// the download is complete, sets the executable bit, then renames over the
+// target. The context lets an aborted run cancel the transfer before the
+// running binary is replaced.
+func downloadBinary(ctx context.Context, url, target string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
@@ -98,12 +105,18 @@ func downloadBinary(url, target string) error {
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName) // no-op once renamed
 
-	if _, err := io.Copy(tmp, resp.Body); err != nil {
+	n, err := io.Copy(tmp, resp.Body)
+	if err != nil {
 		tmp.Close()
 		return fmt.Errorf("write binary: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
 		return err
+	}
+	// Reject a truncated download (clean EOF, fewer bytes than advertised)
+	// before it can be made executable and swapped over the live binary.
+	if resp.ContentLength >= 0 && n != resp.ContentLength {
+		return fmt.Errorf("download truncated: got %d of %d bytes", n, resp.ContentLength)
 	}
 	if err := os.Chmod(tmpName, 0o755); err != nil {
 		return err

@@ -30,6 +30,10 @@ func adoptCmd() *cobra.Command {
 	return cmd
 }
 
+// adoptMove records a file relocated from its original $HOME location (orig)
+// into the module (dest), so it can be reversed on failure.
+type adoptMove struct{ dest, orig string }
+
 func runAdopt(name string, paths []string) error {
 	if err := validateModuleName(name); err != nil {
 		return err
@@ -46,45 +50,62 @@ func runAdopt(name string, paths []string) error {
 	}
 
 	absRepo, _ := filepath.Abs(dotfilesDir)
-	adopted := 0
-	for _, p := range paths {
-		moved, err := adoptPath(p, homeDir, moduleDir, absRepo)
-		if err != nil {
-			return err
-		}
-		if moved {
-			adopted++
+
+	// Reverse every move so a failure never leaves a config moved-but-unstowed
+	// (which would silently break the user's live config).
+	var moves []adoptMove
+	rollback := func() {
+		for i := len(moves) - 1; i >= 0; i-- {
+			orig := moves[i].orig
+			// Drop any (partial) symlink stow may have created at the original
+			// location before restoring the real file.
+			if fi, err := os.Lstat(orig); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+				os.Remove(orig)
+			}
+			_ = movePath(moves[i].dest, orig)
 		}
 	}
 
-	if adopted == 0 {
+	for _, p := range paths {
+		mv, err := adoptPath(p, homeDir, moduleDir, absRepo)
+		if err != nil {
+			rollback()
+			return err
+		}
+		if mv != nil {
+			moves = append(moves, *mv)
+		}
+	}
+
+	if len(moves) == 0 {
 		fmt.Println("Nothing to adopt.")
 		return nil
 	}
 
 	if err := stow.Stow(dotfilesDir, name, homeDir); err != nil {
-		return fmt.Errorf("stow %s: %w", name, err)
+		rollback()
+		return fmt.Errorf("stow %s: %w (changes rolled back)", name, err)
 	}
-	fmt.Printf("Adopted %d path(s) into %q and stowed.\n", adopted, name)
+	fmt.Printf("Adopted %d path(s) into %q and stowed.\n", len(moves), name)
 	return nil
 }
 
-// adoptPath moves a single path into the module. It returns whether a move
-// happened (false when the path was already a managed symlink).
-func adoptPath(p, homeDir, moduleDir, absRepo string) (bool, error) {
+// adoptPath moves a single path into the module. It returns the recorded move,
+// or nil when the path was already a managed symlink (nothing to do).
+func adoptPath(p, homeDir, moduleDir, absRepo string) (*adoptMove, error) {
 	abs, err := filepath.Abs(platform.ExpandHome(p))
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	rel, err := filepath.Rel(homeDir, abs)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return false, fmt.Errorf("%s is not inside $HOME", p)
+		return nil, fmt.Errorf("%s is not inside $HOME", p)
 	}
 
 	info, err := os.Lstat(abs)
 	if err != nil {
-		return false, fmt.Errorf("%s: %w", p, err)
+		return nil, fmt.Errorf("%s: %w", p, err)
 	}
 
 	// Already a symlink into the repo? Nothing to do.
@@ -95,24 +116,24 @@ func adoptPath(p, homeDir, moduleDir, absRepo string) (bool, error) {
 			}
 			if within(filepath.Clean(dest), absRepo) {
 				fmt.Printf("skip %s (already managed)\n", rel)
-				return false, nil
+				return nil, nil
 			}
 		}
-		return false, fmt.Errorf("%s is a symlink pointing outside the repo; refusing to adopt", p)
+		return nil, fmt.Errorf("%s is a symlink pointing outside the repo; refusing to adopt", p)
 	}
 
 	dest := filepath.Join(moduleDir, rel)
 	if _, err := os.Lstat(dest); err == nil {
-		return false, fmt.Errorf("%s already exists in the module; remove it or pick another module", dest)
+		return nil, fmt.Errorf("%s already exists in the module; remove it or pick another module", dest)
 	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-		return false, err
+		return nil, err
 	}
 	if err := movePath(abs, dest); err != nil {
-		return false, fmt.Errorf("move %s: %w", p, err)
+		return nil, fmt.Errorf("move %s: %w", p, err)
 	}
 	fmt.Printf("adopted %s\n", rel)
-	return true, nil
+	return &adoptMove{dest: dest, orig: abs}, nil
 }
 
 // within reports whether path is equal to or nested under dir.

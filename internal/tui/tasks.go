@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -10,11 +12,16 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// ErrAborted is returned by RunTasks when the user quits (q/ctrl+c) before all
+// tasks complete, so callers never mistake an interrupted run for success.
+var ErrAborted = errors.New("aborted by user")
+
 // Task is one unit of work for the task runner. Run is executed on a background
-// goroutine; it must not touch the terminal directly.
+// goroutine; it must not touch the terminal directly. The context is cancelled
+// if the user aborts, so cancellable work (e.g. downloads) should honour it.
 type Task struct {
 	Title string
-	Run   func() error
+	Run   func(ctx context.Context) error
 }
 
 type taskState int
@@ -148,21 +155,37 @@ func RunTasks(headline string, tasks []Task) ([]error, error) {
 		return runTasksPlain(headline, tasks), nil
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	program := tea.NewProgram(newTaskRunnerModel(headline, tasks))
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		for i, t := range tasks {
+			if ctx.Err() != nil {
+				break
+			}
 			program.Send(taskStartMsg{index: i})
-			err := t.Run()
+			err := t.Run(ctx)
 			program.Send(taskDoneMsg{index: i, err: err})
 		}
 		program.Send(tasksAllDoneMsg{})
 	}()
 
 	final, err := program.Run()
+	// Cancel the in-flight task and wait for the goroutine to unwind so its
+	// deferred cleanup (e.g. removing a partial download) runs before we return.
+	cancel()
+	<-done
 	if err != nil {
 		return nil, err
 	}
-	return final.(taskRunnerModel).errs, nil
+	m := final.(taskRunnerModel)
+	if m.quitting && !m.done {
+		return m.errs, ErrAborted
+	}
+	return m.errs, nil
 }
 
 func runTasksPlain(headline string, tasks []Task) []error {
@@ -170,7 +193,7 @@ func runTasksPlain(headline string, tasks []Task) []error {
 	errs := make([]error, len(tasks))
 	for i, t := range tasks {
 		fmt.Printf("  %s... ", t.Title)
-		err := t.Run()
+		err := t.Run(context.Background())
 		errs[i] = err
 		if err != nil {
 			fmt.Printf("failed: %s\n", err)

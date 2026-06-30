@@ -115,6 +115,31 @@ func TestFindDangling_TopLevelAndNested(t *testing.T) {
 	}
 }
 
+func TestScanRoots_HeavyTopLevelBounded(t *testing.T) {
+	repo, home := setup(t)
+	// ghostty maps into ~/Library (heavy); claude into ~/.claude (normal).
+	writeFile(t, filepath.Join(repo, "ghostty", "Library", "Application Support", "com.x", "config"), "1")
+	writeFile(t, filepath.Join(repo, "claude", ".claude", "CLAUDE.md"), "2")
+
+	set := map[string]bool{}
+	for _, r := range ScanRoots(repo, home, []string{"ghostty", "claude"}) {
+		set[r] = true
+	}
+
+	if set[filepath.Join(home, "Library")] {
+		t.Error("must not add ~/Library as a recursive root (would walk millions of files)")
+	}
+	if !set[filepath.Join(home, "Library", "Application Support", "com.x")] {
+		t.Error("expected the ghostty leaf's exact directory as a bounded root")
+	}
+	if !set[filepath.Join(home, ".claude")] {
+		t.Error("expected ~/.claude top-level root for a non-heavy module")
+	}
+	if !set[filepath.Join(home, ".config")] {
+		t.Error("~/.config must always be a root")
+	}
+}
+
 func TestFindDangling_None(t *testing.T) {
 	repo, home := setup(t)
 	src := filepath.Join(repo, "m", ".zshrc")

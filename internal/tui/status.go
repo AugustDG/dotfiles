@@ -24,16 +24,18 @@ type ModuleStatus struct {
 
 // RepoSummary describes the state of the dotfiles repo for the status header.
 type RepoSummary struct {
-	Branch   string
-	Ahead    int
-	Behind   int
-	Dirty    bool
-	Detached bool
+	Branch     string
+	Ahead      int
+	Behind     int
+	Dirty      bool
+	Detached   bool
+	NoUpstream bool
 }
 
-// Clean reports whether the repo has nothing outstanding to commit or push.
+// Clean reports whether the repo has nothing outstanding to commit or push. A
+// branch with no upstream is not clean: its commits have nowhere to be pushed.
 func (s RepoSummary) Clean() bool {
-	return !s.Dirty && !s.Detached && s.Ahead == 0 && s.Behind == 0
+	return !s.Dirty && !s.Detached && !s.NoUpstream && s.Ahead == 0 && s.Behind == 0
 }
 
 // RenderRepoSummary renders a one-line summary of the repo state.
@@ -44,6 +46,9 @@ func RenderRepoSummary(s RepoSummary) string {
 	parts := []string{}
 	if s.Dirty {
 		parts = append(parts, noStyle.Render("dirty"))
+	}
+	if s.NoUpstream {
+		parts = append(parts, noStyle.Render("no upstream"))
 	}
 	if s.Ahead > 0 {
 		parts = append(parts, noStyle.Render(fmt.Sprintf("%d unpushed", s.Ahead)))

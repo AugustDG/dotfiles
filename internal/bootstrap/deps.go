@@ -39,7 +39,7 @@ func MissingDeps(d config.Deps, formulae, casks map[string]bool) []string {
 	}
 	if runtime.GOOS == "darwin" {
 		for _, c := range d.Cask {
-			if !casks[c] {
+			if !casks[brew.PackageLeaf(c)] {
 				missing = append(missing, c)
 			}
 		}

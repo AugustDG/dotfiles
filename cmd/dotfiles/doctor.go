@@ -111,6 +111,9 @@ func repoStateCheck(dotfilesDir string) tui.Check {
 	if dirty {
 		notes = append(notes, "uncommitted changes")
 	}
+	if !gitops.HasUpstream(dotfilesDir) {
+		notes = append(notes, "no upstream tracking branch")
+	}
 	if ahead > 0 {
 		notes = append(notes, fmt.Sprintf("%d unpushed", ahead))
 	}
