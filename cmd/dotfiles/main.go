@@ -29,7 +29,15 @@ func newRootCmd() *cobra.Command {
 		uninstallCmd(),
 		statusCmd(),
 		updateCmd(),
+		pullCmd(),
 		syncCmd(),
+		depsCmd(),
+		doctorCmd(),
+		cleanCmd(),
+		addCmd(),
+		adoptCmd(),
+		editCmd(),
+		selfUpdateCmd(),
 	)
 
 	return cmd

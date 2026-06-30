@@ -13,9 +13,10 @@ func uninstallCmd() *cobra.Command {
 	var all bool
 
 	cmd := &cobra.Command{
-		Use:   "uninstall [modules...]",
-		Short: "Unstow modules from $HOME",
-		Args:  cobra.ArbitraryArgs,
+		Use:               "uninstall [modules...]",
+		Short:             "Unstow modules from $HOME",
+		Args:              cobra.ArbitraryArgs,
+		ValidArgsFunction: moduleNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dotfilesDir := platform.DotfilesDir()
 			homeDir := platform.HomeDir()

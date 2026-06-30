@@ -13,8 +13,9 @@ import (
 
 func updateCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "update [modules...]",
-		Short: "Pull latest and re-stow modules",
+		Use:               "update [modules...]",
+		Short:             "Pull submodules to upstream latest and re-stow",
+		ValidArgsFunction: moduleNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUpdate(args)
 		},

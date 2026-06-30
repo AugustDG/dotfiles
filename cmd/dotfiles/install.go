@@ -20,8 +20,9 @@ func installCmd() *cobra.Command {
 	opts := installOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "install [modules...]",
-		Short: "Install dotfiles modules",
+		Use:               "install [modules...]",
+		Short:             "Install dotfiles modules",
+		ValidArgsFunction: moduleNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInstall(opts, args)
 		},

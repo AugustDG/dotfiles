@@ -1,0 +1,28 @@
+# Top-level configuration for the dotfiles CLI.
+#
+# This file is optional — the CLI ships with the same values as built-in
+# defaults, so a fresh bootstrap works before the repo is even cloned. Edit it
+# to change the toolchain the `install` bootstrap phase sets up, then run
+# `dotfiles pull` (or re-run the installer) to apply.
+
+[bootstrap]
+# Installed before the repo is cloned — the minimum needed to proceed.
+core_brew = ["zsh", "git", "gh", "stow"]
+
+# Installed after the repo is cloned — the general-purpose toolchain.
+global_brew = [
+  "fzf",
+  "atuin",
+  "jandedobbeleer/oh-my-posh/oh-my-posh",
+  "oven-sh/bun/bun",
+  "nvm",
+  "pnpm",
+  "node",
+  "ripgrep",
+  "fd",
+  "jq",
+]
+
+# Files in $HOME moved into a timestamped backup dir if they exist as real
+# files (not symlinks) before stowing, so stow never refuses on a conflict.
+backup_targets = [".zshrc", ".zshenv", ".zprofile", ".gitconfig"]

@@ -2,9 +2,29 @@ package main
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/AugustDG/dotfiles/internal/config"
+	"github.com/AugustDG/dotfiles/internal/platform"
+	"github.com/spf13/cobra"
 )
+
+// moduleNameCompletion provides shell completion of module names for command
+// arguments, omitting names already present on the command line.
+func moduleNameCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	modules, err := config.DiscoverModules(platform.DotfilesDir())
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	var names []string
+	for _, m := range modules {
+		if !slices.Contains(args, m.Name) && strings.HasPrefix(m.Name, toComplete) {
+			names = append(names, m.Name)
+		}
+	}
+	return names, cobra.ShellCompDirectiveNoFileComp
+}
 
 func resolveModuleArgs(modules []config.Module, names []string) ([]config.Module, error) {
 	byName := moduleMap(modules)

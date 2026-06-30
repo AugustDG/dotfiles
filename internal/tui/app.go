@@ -8,7 +8,7 @@ import (
 type View int
 
 const (
-	ViewPicker   View = iota
+	ViewPicker View = iota
 	ViewProgress
 	ViewSummary
 )

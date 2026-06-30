@@ -26,9 +26,19 @@ type Module struct {
 	IsStowed       bool
 }
 
-// Deps lists package manager dependencies for a module.
+// Deps lists package manager dependencies for a module. Brew/cask apply on
+// macOS (and Linuxbrew); apt/dnf apply on Linux with the matching package
+// manager present.
 type Deps struct {
 	Brew []string `toml:"brew"`
+	Cask []string `toml:"cask"`
+	Apt  []string `toml:"apt"`
+	Dnf  []string `toml:"dnf"`
+}
+
+// Empty reports whether the module declares no dependencies at all.
+func (d Deps) Empty() bool {
+	return len(d.Brew) == 0 && len(d.Cask) == 0 && len(d.Apt) == 0 && len(d.Dnf) == 0
 }
 
 // Hooks defines lifecycle hooks for a module.

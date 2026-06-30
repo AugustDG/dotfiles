@@ -10,12 +10,12 @@ import (
 
 // skipFiles lists filenames that should be ignored when checking stow status.
 var skipFiles = map[string]bool{
-	"module.toml":  true,
-	".git":         true,
-	".gitmodules":  true,
-	".gitignore":   true,
-	"README.md":    true,
-	"LICENSE":      true,
+	"module.toml": true,
+	".git":        true,
+	".gitmodules": true,
+	".gitignore":  true,
+	"README.md":   true,
+	"LICENSE":     true,
 }
 
 // IsStowed returns true if every leaf file in the module directory (excluding
@@ -86,14 +86,18 @@ func isLinkedToSource(targetPath, absSource string) bool {
 		return absLink == absSource
 	}
 
-	// Slow path: check if any ancestor directory is a symlink that, when
-	// resolved, makes the full path point to absSource.
-	resolved, err := filepath.EvalSymlinks(targetPath)
+	// Slow path: a parent directory may be the symlink. Compare the fully
+	// resolved real path of both sides so ancestor symlinks (e.g. a symlinked
+	// repo location, or macOS /var -> /private/var) don't cause false misses.
+	resolvedTarget, err := filepath.EvalSymlinks(targetPath)
 	if err != nil {
 		return false
 	}
-	absResolved, _ := filepath.Abs(resolved)
-	return absResolved == absSource
+	resolvedSource, err := filepath.EvalSymlinks(absSource)
+	if err != nil {
+		return false
+	}
+	return resolvedTarget == resolvedSource
 }
 
 // Stow runs GNU stow to create symlinks for the given module.
@@ -111,4 +115,3 @@ func Unstow(dotfilesDir, moduleName, homeDir string) error {
 	runner.ConfigureCmd(cmd)
 	return cmd.Run()
 }
-

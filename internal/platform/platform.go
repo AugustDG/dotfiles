@@ -2,6 +2,7 @@ package platform
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -41,6 +42,39 @@ func DotfilesDir() string {
 		return dir
 	}
 	return filepath.Join(HomeDir(), "projects", "dotfiles")
+}
+
+// LocalBin returns ~/.local/bin, the install target for user binaries.
+func LocalBin() string {
+	return filepath.Join(HomeDir(), ".local", "bin")
+}
+
+// Editor resolves the user's terminal editor from $VISUAL, then $EDITOR,
+// falling back to the first of nvim/vim/vi/nano found on PATH. Returns "" if
+// none is available.
+func Editor() string {
+	for _, env := range []string{os.Getenv("VISUAL"), os.Getenv("EDITOR")} {
+		if env != "" {
+			return env
+		}
+	}
+	for _, candidate := range []string{"nvim", "vim", "vi", "nano"} {
+		if _, err := exec.LookPath(candidate); err == nil {
+			return candidate
+		}
+	}
+	return ""
+}
+
+// PathContains reports whether dir is one of the entries in $PATH.
+func PathContains(dir string) bool {
+	dir = filepath.Clean(dir)
+	for _, entry := range filepath.SplitList(os.Getenv("PATH")) {
+		if filepath.Clean(entry) == dir {
+			return true
+		}
+	}
+	return false
 }
 
 // IsInteractive returns true if stdin is connected to a terminal.

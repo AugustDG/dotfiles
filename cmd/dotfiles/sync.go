@@ -24,9 +24,10 @@ func syncCmd() *cobra.Command {
 	opts := syncOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "sync [modules...]",
-		Short: "Commit and push local changes, submodules first",
-		Args:  cobra.ArbitraryArgs,
+		Use:               "sync [modules...]",
+		Short:             "Commit and push local changes, submodules first",
+		Args:              cobra.ArbitraryArgs,
+		ValidArgsFunction: moduleNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSync(opts, args)
 		},

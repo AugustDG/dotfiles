@@ -98,10 +98,53 @@ func SubmoduleStatus(dotfilesDir, path string) (string, error) {
 	return "dirty", nil
 }
 
+// Pull fast-forwards the repo at path from its upstream.
+func Pull(path string) error {
+	return runGit("-C", path, "pull", "--ff-only")
+}
+
 func PullSubmodule(path string) error {
-	cmd := exec.Command("git", "-C", path, "pull", "--ff-only")
-	runner.ConfigureCmd(cmd)
-	return cmd.Run()
+	return Pull(path)
+}
+
+// SyncSubmodules initialises and updates every submodule in the repo at path to
+// the commit recorded by the superproject.
+func SyncSubmodules(path string) error {
+	return runGit("-C", path, "submodule", "update", "--init", "--recursive")
+}
+
+// HasUpstream reports whether the current branch has a configured upstream.
+func HasUpstream(path string) bool {
+	return exec.Command("git", "-C", path,
+		"rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}").Run() == nil
+}
+
+// AheadBehind returns how many commits HEAD is ahead of and behind its
+// upstream. Both are 0 when there is no upstream.
+func AheadBehind(path string) (ahead, behind int) {
+	out, err := exec.Command("git", "-C", path,
+		"rev-list", "--left-right", "--count", "@{upstream}...HEAD").Output()
+	if err != nil {
+		return 0, 0
+	}
+	fields := strings.Fields(strings.TrimSpace(string(out)))
+	if len(fields) != 2 {
+		return 0, 0
+	}
+	behind = atoi(fields[0])
+	ahead = atoi(fields[1])
+	return ahead, behind
+}
+
+func atoi(s string) int {
+	n := 0
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return n
+		}
+		n = n*10 + int(r-'0')
+	}
+	return n
 }
 
 // Submodules returns the relative paths of submodules declared in the

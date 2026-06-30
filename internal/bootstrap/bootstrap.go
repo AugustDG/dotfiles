@@ -15,6 +15,7 @@ import (
 	"github.com/AugustDG/dotfiles/internal/platform"
 	"github.com/AugustDG/dotfiles/internal/runner"
 	"github.com/AugustDG/dotfiles/internal/stow"
+	"github.com/AugustDG/dotfiles/internal/syspkg"
 	"github.com/AugustDG/dotfiles/internal/tui"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -62,7 +63,7 @@ func (inst *Installer) bootstrapStep(name string, fn func() error) error {
 func (inst *Installer) RunBootstrap() error {
 	if runtime.GOOS == "linux" {
 		_ = inst.bootstrapStep("Install Linux prerequisites", func() error {
-			return installLinuxPrereqs()
+			return syspkg.InstallPrereqs()
 		})
 	}
 
@@ -82,7 +83,7 @@ func (inst *Installer) RunBootstrap() error {
 	brew.EnsureOnPath()
 
 	_ = inst.bootstrapStep("Install core packages", func() error {
-		return brew.InstallPackages(CoreBrewPackages)
+		return brew.InstallPackages(orDefault(inst.manifest().CoreBrew, CoreBrewPackages))
 	})
 
 	_ = inst.bootstrapStep("GitHub auth", func() error {
@@ -107,7 +108,7 @@ func (inst *Installer) RunBootstrap() error {
 	})
 
 	_ = inst.bootstrapStep("Install global packages", func() error {
-		return brew.InstallPackages(GlobalBrewPackages)
+		return brew.InstallPackages(orDefault(inst.manifest().GlobalBrew, GlobalBrewPackages))
 	})
 
 	_ = inst.bootstrapStep("Install znap", func() error {
@@ -128,7 +129,7 @@ func (inst *Installer) RunBootstrap() error {
 	})
 
 	_ = inst.bootstrapStep("Backup conflicting files", func() error {
-		return backupConflicts(inst.homeDir)
+		return backupConflicts(inst.homeDir, orDefault(inst.manifest().BackupTargets, BackupTargets))
 	})
 
 	_ = inst.bootstrapStep("Create ~/.zshrc.local", func() error {
@@ -157,10 +158,11 @@ func (inst *Installer) InstallModule(mod config.Module) tui.ModuleResult {
 		}
 	}
 
-	if len(mod.Deps.Brew) > 0 {
-		inst.send(tui.StepStartMsg{Module: mod.Name, Step: fmt.Sprintf("Install %s", strings.Join(mod.Deps.Brew, ", "))})
-		err := brew.InstallPackages(mod.Deps.Brew)
-		inst.send(tui.StepDoneMsg{Module: mod.Name, Step: fmt.Sprintf("Install %s", strings.Join(mod.Deps.Brew, ", ")), Err: err})
+	if !mod.Deps.Empty() {
+		label := fmt.Sprintf("Install %s", strings.Join(DepNames(mod.Deps), ", "))
+		inst.send(tui.StepStartMsg{Module: mod.Name, Step: label})
+		err := InstallDeps(mod.Deps)
+		inst.send(tui.StepDoneMsg{Module: mod.Name, Step: label, Err: err})
 		if err != nil {
 			return tui.ModuleResult{Name: mod.Name, Status: "failed", Warning: err.Error()}
 		}
@@ -188,26 +190,19 @@ func (inst *Installer) InstallModule(mod config.Module) tui.ModuleResult {
 	return tui.ModuleResult{Name: mod.Name, Status: "installed"}
 }
 
-func submodulePathsForModule(dotfilesDir, moduleName string) []string {
-	gitmodules := filepath.Join(dotfilesDir, ".gitmodules")
-	data, err := os.ReadFile(gitmodules)
-	if err != nil {
-		return []string{moduleName}
+// manifest loads the bootstrap section of dotfiles.toml, returning a zero value
+// when the manifest is absent so callers fall back to built-in defaults.
+func (inst *Installer) manifest() config.BootstrapConfig {
+	m, _ := config.LoadManifest(inst.dotfilesDir)
+	return m.Bootstrap
+}
+
+// orDefault returns v when it is non-empty, otherwise def.
+func orDefault(v, def []string) []string {
+	if len(v) > 0 {
+		return v
 	}
-	var paths []string
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "path = ") {
-			p := strings.TrimPrefix(line, "path = ")
-			if strings.HasPrefix(p, moduleName+"/") || strings.HasPrefix(p, moduleName+"/.") {
-				paths = append(paths, p)
-			}
-		}
-	}
-	if len(paths) == 0 {
-		return []string{moduleName}
-	}
-	return paths
+	return def
 }
 
 func installHopper() error {
@@ -246,9 +241,9 @@ func installHopper() error {
 	return nil
 }
 
-func backupConflicts(homeDir string) error {
+func backupConflicts(homeDir string, targets []string) error {
 	needBackup := false
-	for _, f := range BackupTargets {
+	for _, f := range targets {
 		p := filepath.Join(homeDir, f)
 		info, err := os.Lstat(p)
 		if err != nil {
@@ -266,7 +261,7 @@ func backupConflicts(homeDir string) error {
 	backupDir := filepath.Join(homeDir, fmt.Sprintf(".dotfiles-backup-%s", time.Now().Format("20060102-150405")))
 	os.MkdirAll(backupDir, 0o755)
 
-	for _, f := range BackupTargets {
+	for _, f := range targets {
 		src := filepath.Join(homeDir, f)
 		info, err := os.Lstat(src)
 		if err != nil || info.Mode()&os.ModeSymlink != 0 {
@@ -302,42 +297,15 @@ func setDefaultShell() error {
 
 	shells, _ := os.ReadFile("/etc/shells")
 	if !strings.Contains(string(shells), zshBin) {
-		cmd := runWithSudo("tee", "-a", "/etc/shells")
+		cmd := runner.Sudo("tee", "-a", "/etc/shells")
 		cmd.Stdin = strings.NewReader(zshBin + "\n")
 		cmd.Stdout = nil
 		cmd.Run()
 	}
 
-	chsh := runWithSudo("chsh", "-s", zshBin)
+	chsh := runner.Sudo("chsh", "-s", zshBin)
 	if os.Getuid() != 0 {
-		chsh = runWithSudo("chsh", "-s", zshBin, os.Getenv("USER"))
+		chsh = runner.Sudo("chsh", "-s", zshBin, os.Getenv("USER"))
 	}
 	return chsh.Run()
-}
-
-func sudoPrefix() []string {
-	if os.Getuid() == 0 {
-		return nil
-	}
-	return []string{"sudo"}
-}
-
-func runWithSudo(args ...string) *exec.Cmd {
-	full := append(sudoPrefix(), args...)
-	cmd := exec.Command(full[0], full[1:]...)
-	runner.ConfigureCmd(cmd)
-	return cmd
-}
-
-func installLinuxPrereqs() error {
-	if _, err := exec.LookPath("apt-get"); err == nil {
-		runWithSudo("apt-get", "update").Run()
-		return runWithSudo("apt-get", "install", "-y",
-			"build-essential", "procps", "curl", "file", "git").Run()
-	}
-	if _, err := exec.LookPath("yum"); err == nil {
-		return runWithSudo("yum", "install", "-y",
-			"git", "curl", "procps-ng", "file", "gcc", "make").Run()
-	}
-	return nil
 }
