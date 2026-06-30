@@ -20,6 +20,7 @@ type ModuleStatus struct {
 	SubmoduleState string // "clean", "dirty", "not-init", ""
 	DepsChecked    bool   // false when brew is unavailable
 	DepsMissing    []string
+	Compatible     bool // supports the current OS
 }
 
 // RepoSummary describes the state of the dotfiles repo for the status header.
@@ -72,6 +73,23 @@ func RenderStatusTable(statuses []ModuleStatus) string {
 	b.WriteString("\n")
 
 	for _, s := range statuses {
+		// Modules that don't support this OS can't be installed here — dim the
+		// whole row and note the requirement so they don't read as installable.
+		if !s.Compatible {
+			desc := s.Module.Description
+			if len(s.Module.OS) > 0 {
+				desc += fmt.Sprintf(" (requires %s)", strings.Join(s.Module.OS, "/"))
+			}
+			b.WriteString(fmt.Sprintf("  %s %s %s %s %s\n",
+				padStyled(disabledStyle.Render(s.Module.Name), 12),
+				padStyled(naStyle.Render("n/a"), 8),
+				padStyled(naStyle.Render("—"), 10),
+				padStyled(naStyle.Render("—"), 10),
+				disabledStyle.Render(desc),
+			))
+			continue
+		}
+
 		stowed := noStyle.Render("no")
 		if s.Module.IsStowed {
 			stowed = yesStyle.Render("yes")

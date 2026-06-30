@@ -89,9 +89,14 @@ func moduleStatuses(dotfilesDir string, modules []config.Module) []tui.ModuleSta
 		casks = brew.InstalledCasks()
 	}
 
+	currentOS := platform.DetectOS()
 	statuses := make([]tui.ModuleStatus, 0, len(modules))
 	for _, mod := range modules {
-		status := tui.ModuleStatus{Module: mod, DepsChecked: depsChecked}
+		status := tui.ModuleStatus{
+			Module:      mod,
+			DepsChecked: depsChecked,
+			Compatible:  mod.SupportsOS(currentOS),
+		}
 		if mod.HasSubmodule && len(mod.SubmodulePaths) > 0 {
 			state, _ := gitops.SubmoduleStatus(dotfilesDir, mod.SubmodulePaths[0])
 			status.SubmoduleState = state
