@@ -181,6 +181,40 @@ func CurrentBranch(path string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// BranchAtHead returns a local branch whose tip is the current HEAD commit
+// (preferring main/master), and whether such a branch exists. It lets a caller
+// re-attach a detached HEAD — the common state of a freshly-updated submodule —
+// to its branch without moving any content, since the branch is already at HEAD.
+func BranchAtHead(path string) (string, bool) {
+	out, err := exec.Command("git", "-C", path, "branch", "--points-at", "HEAD", "--format=%(refname:short)").Output()
+	if err != nil {
+		return "", false
+	}
+	var branches []string
+	for _, line := range strings.Split(string(out), "\n") {
+		b := strings.TrimSpace(line)
+		// Skip blanks and the "(HEAD detached at …)" pseudo-entry.
+		if b == "" || strings.ContainsAny(b, "( \t") {
+			continue
+		}
+		branches = append(branches, b)
+	}
+	if len(branches) == 0 {
+		return "", false
+	}
+	for _, b := range branches {
+		if b == "main" || b == "master" {
+			return b, true
+		}
+	}
+	return branches[0], true
+}
+
+// Checkout switches the repo at path to the given branch.
+func Checkout(path, branch string) error {
+	return runGit("-C", path, "checkout", branch)
+}
+
 // HasUnpushed reports whether HEAD has commits not on its upstream. Returns
 // false when there is no upstream (e.g. detached HEAD in a submodule).
 func HasUnpushed(path string) bool {

@@ -110,7 +110,21 @@ func syncRepo(path, name, message string, dryRun bool) (bool, error) {
 
 	if gitops.IsDirty(path) {
 		if _, err := gitops.CurrentBranch(path); err != nil {
-			return synced, fmt.Errorf("%s has changes but is on a detached HEAD; check out a branch first", name)
+			// Submodules are normally on a detached HEAD. If a local branch is
+			// already at this commit, attach to it (no content moves) so the
+			// commit has a home; otherwise the user must pick a branch.
+			branch, ok := gitops.BranchAtHead(path)
+			if !ok {
+				return synced, fmt.Errorf("%s has changes on a detached HEAD with no local branch at this commit; check out a branch first", name)
+			}
+			if dryRun {
+				fmt.Printf("%s: would attach detached HEAD to %s, then commit\n", name, branch)
+			} else {
+				if err := gitops.Checkout(path, branch); err != nil {
+					return synced, fmt.Errorf("%s: attach to %s: %w", name, branch, err)
+				}
+				fmt.Printf("%s: attached detached HEAD to %s\n", name, branch)
+			}
 		}
 		if dryRun {
 			fmt.Printf("%s: would commit local changes\n", name)
