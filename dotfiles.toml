@@ -21,6 +21,7 @@ global_brew = [
   "ripgrep",
   "fd",
   "jq",
+  "zoxide",
 ]
 
 # Files in $HOME moved into a timestamped backup dir if they exist as real
