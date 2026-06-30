@@ -4,9 +4,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/AugustDG/dotfiles/internal/config"
+	"github.com/AugustDG/dotfiles/internal/tui"
 )
 
 func TestValidateModuleName(t *testing.T) {
@@ -196,6 +198,28 @@ func mustWriteFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestInstallResultsError(t *testing.T) {
+	if err := installResultsError(nil); err != nil {
+		t.Errorf("no results should be nil, got %v", err)
+	}
+	ok := []tui.ModuleResult{{Name: "a", Status: "installed"}, {Name: "b", Status: "skipped"}}
+	if err := installResultsError(ok); err != nil {
+		t.Errorf("all-ok should be nil, got %v", err)
+	}
+	mixed := []tui.ModuleResult{
+		{Name: "a", Status: "installed"},
+		{Name: "b", Status: "failed"},
+		{Name: "c", Status: "failed"},
+	}
+	err := installResultsError(mixed)
+	if err == nil {
+		t.Fatal("expected error when a module failed")
+	}
+	if !strings.Contains(err.Error(), "b") || !strings.Contains(err.Error(), "c") {
+		t.Errorf("error should name failed modules, got %q", err.Error())
 	}
 }
 

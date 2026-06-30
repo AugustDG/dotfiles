@@ -118,7 +118,9 @@ func adoptPath(p, homeDir, moduleDir, absRepo string) (*adoptMove, error) {
 
 	dest := filepath.Join(moduleDir, rel)
 	if _, err := os.Lstat(dest); err == nil {
-		return nil, fmt.Errorf("%s already exists in the module; remove it or pick another module", dest)
+		return nil, fmt.Errorf("%s already exists in the module: this file is already tracked. "+
+			"To replace the tracked copy with the one in your home dir, run "+
+			"`dotfiles install --adopt %s` instead", dest, filepath.Base(moduleDir))
 	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return nil, err

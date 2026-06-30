@@ -41,6 +41,27 @@ func TestIsStowed_DirectorySymlink(t *testing.T) {
 	}
 }
 
+// TestIsStowed_FoldedDirWithTrackedSymlink covers a module that itself contains
+// a symlink (e.g. tmux-resurrect's test helpers) and is stowed by folding the
+// whole subtree into one directory symlink. The folded leaf is not a symlink of
+// its own, and the tracked symlink doesn't point at its own source path, so a
+// naive one-level readlink check misreports the module as not stowed.
+func TestIsStowed_FoldedDirWithTrackedSymlink(t *testing.T) {
+	repo, home := setup(t)
+	writeFile(t, filepath.Join(repo, "m", "module.toml"), "name='m'")
+	writeFile(t, filepath.Join(repo, "m", ".config", "app", "real.sh"), "1")
+	// A tracked symlink inside the module pointing at a sibling file.
+	symlink(t, "real.sh", filepath.Join(repo, "m", ".config", "app", "link.sh"))
+
+	// Fold the whole subtree: ~/.config/app -> repo/m/.config/app
+	symlink(t, filepath.Join(repo, "m", ".config", "app"),
+		filepath.Join(home, ".config", "app"))
+
+	if !IsStowed(repo, "m", home) {
+		t.Fatal("folded module with a tracked symlink leaf should report stowed")
+	}
+}
+
 func TestIsStowed_PartialIsNotStowed(t *testing.T) {
 	repo, home := setup(t)
 	writeFile(t, filepath.Join(repo, "m", "a"), "1")

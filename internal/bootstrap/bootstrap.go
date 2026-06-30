@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -143,7 +144,7 @@ func (inst *Installer) RunBootstrap() error {
 	return nil
 }
 
-func (inst *Installer) InstallModule(mod config.Module) tui.ModuleResult {
+func (inst *Installer) InstallModule(mod config.Module, adopt bool) tui.ModuleResult {
 	currentOS := platform.DetectOS()
 	if !mod.SupportsOS(currentOS) {
 		return tui.ModuleResult{Name: mod.Name, Status: "skipped", Warning: "wrong OS"}
@@ -169,10 +170,20 @@ func (inst *Installer) InstallModule(mod config.Module) tui.ModuleResult {
 	}
 
 	inst.send(tui.StepStartMsg{Module: mod.Name, Step: "Stow"})
-	err := stow.Stow(inst.dotfilesDir, mod.Name, inst.homeDir)
+	var err error
+	if adopt {
+		err = stow.StowAdopt(inst.dotfilesDir, mod.Name, inst.homeDir)
+	} else {
+		err = stow.Stow(inst.dotfilesDir, mod.Name, inst.homeDir)
+	}
 	inst.send(tui.StepDoneMsg{Module: mod.Name, Step: "Stow", Err: err})
 	if err != nil {
-		return tui.ModuleResult{Name: mod.Name, Status: "failed", Warning: err.Error()}
+		result := tui.ModuleResult{Name: mod.Name, Status: "failed", Warning: err.Error()}
+		var conflict *stow.ConflictError
+		if errors.As(err, &conflict) && !adopt {
+			result.Hint = "rerun with --adopt to absorb the existing files into the repo, or back them up first"
+		}
+		return result
 	}
 
 	if mod.Hooks.PostInstall != "" {

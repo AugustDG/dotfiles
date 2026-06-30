@@ -1,5 +1,7 @@
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
 
 # Machine-local overrides / secrets — never tracked
 .zshrc.local
@@ -7,7 +9,19 @@
 # Editor/tmp
 *.swp
 *.swo
+*~
+
+# Dependency / build directories pulled in by config tooling
+# (e.g. opencode/zed configs that npm/bun-install plugins locally)
+node_modules/
+.pnp
+.pnp.js
+bun.lockb
 
 # Go build artifacts
 dist/
 /dotfiles
+
+# Note: this .gitignore covers files tracked directly by THIS repo. Submodules
+# (nvim, tmux, yazi, zed, opencode configs, …) are separate repositories and
+# need their own .gitignore — see opencode/.config/opencode/.gitignore.

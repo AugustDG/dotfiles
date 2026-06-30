@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/AugustDG/dotfiles/internal/bootstrap"
 	"github.com/AugustDG/dotfiles/internal/config"
@@ -14,6 +15,7 @@ import (
 type installOptions struct {
 	all           bool
 	skipBootstrap bool
+	adopt         bool
 }
 
 func installCmd() *cobra.Command {
@@ -30,6 +32,7 @@ func installCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&opts.all, "all", false, "Install all OS-compatible modules")
 	cmd.Flags().BoolVar(&opts.skipBootstrap, "skip-bootstrap", false, "Skip the bootstrap phase")
+	cmd.Flags().BoolVar(&opts.adopt, "adopt", false, "On conflict, absorb existing target files into the repo (stow --adopt), then symlink")
 	return cmd
 }
 
@@ -60,7 +63,7 @@ func runInstall(opts installOptions, args []string) error {
 		return nil
 	}
 
-	return runModuleInstall(dotfilesDir, selected, interactive)
+	return runModuleInstall(dotfilesDir, selected, interactive, opts.adopt)
 }
 
 func installTargets(modules []config.Module, args []string, all, interactive bool) ([]config.Module, error) {
@@ -99,34 +102,50 @@ func selectModulesInteractively(modules []config.Module) ([]config.Module, bool,
 	return selection.SelectedModules(), true, nil
 }
 
-func runModuleInstall(dotfilesDir string, modules []config.Module, interactive bool) error {
+func runModuleInstall(dotfilesDir string, modules []config.Module, interactive, adopt bool) error {
 	if !interactive {
-		return runModuleInstallPlain(dotfilesDir, modules)
+		return runModuleInstallPlain(dotfilesDir, modules, adopt)
 	}
 
 	model := tui.NewProgressOnlyModel()
 	program := tea.NewProgram(model)
 
+	// The producer goroutine owns its results slice and reports the aggregate
+	// error over a buffered channel exactly once, just before signalling done.
+	// We read only from the channel — never the slice — so an early UI quit
+	// (q / ctrl+c), which makes program.Run return before the send, can't race
+	// the still-running goroutine; we just report no module error in that case.
+	errCh := make(chan error, 1)
 	go func() {
 		inst := bootstrap.NewInstaller(program, dotfilesDir)
+		results := make([]tui.ModuleResult, 0, len(modules))
 		for _, mod := range modules {
-			result := inst.InstallModule(mod)
+			result := inst.InstallModule(mod, adopt)
+			results = append(results, result)
 			program.Send(tui.ModuleResultMsg{Result: result})
 		}
+		errCh <- installResultsError(results)
 		program.Send(tui.AllDoneMsg{})
 	}()
 
-	_, err := program.Run()
-	return err
+	if _, err := program.Run(); err != nil {
+		return err
+	}
+	select {
+	case err := <-errCh:
+		return err
+	default:
+		return nil
+	}
 }
 
-func runModuleInstallPlain(dotfilesDir string, modules []config.Module) error {
+func runModuleInstallPlain(dotfilesDir string, modules []config.Module, adopt bool) error {
 	inst := bootstrap.NewInstaller(nil, dotfilesDir)
 
 	results := make([]tui.ModuleResult, 0, len(modules))
 	for _, mod := range modules {
 		fmt.Printf("  %s... ", mod.Name)
-		result := inst.InstallModule(mod)
+		result := inst.InstallModule(mod, adopt)
 		results = append(results, result)
 		printInstallResult(result)
 	}
@@ -135,7 +154,22 @@ func runModuleInstallPlain(dotfilesDir string, modules []config.Module) error {
 	for _, result := range results {
 		fmt.Printf("  %s %-12s %s\n", installStatusIcon(result.Status), result.Name, result.Status)
 	}
-	return nil
+	return installResultsError(results)
+}
+
+// installResultsError returns a non-zero error when any module failed, so the
+// process exit code reflects partial failure (e.g. for CI or shell chaining).
+func installResultsError(results []tui.ModuleResult) error {
+	var failed []string
+	for _, r := range results {
+		if r.Status == "failed" {
+			failed = append(failed, r.Name)
+		}
+	}
+	if len(failed) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%d module(s) failed to install: %s", len(failed), strings.Join(failed, ", "))
 }
 
 func printInstallResult(result tui.ModuleResult) {
@@ -150,6 +184,9 @@ func printInstallResult(result tui.ModuleResult) {
 		fmt.Printf("skipped (%s)\n", result.Warning)
 	case "failed":
 		fmt.Printf("failed (%s)\n", result.Warning)
+		if result.Hint != "" {
+			fmt.Printf("    → %s\n", result.Hint)
+		}
 	}
 }
 

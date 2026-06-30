@@ -19,6 +19,7 @@ type ModuleResult struct {
 	Name    string
 	Status  string // "installed", "failed", "skipped"
 	Warning string
+	Hint    string // optional actionable suggestion shown after a failure
 }
 
 type SummaryModel struct {
@@ -53,6 +54,9 @@ func (m SummaryModel) View() string {
 			line += fmt.Sprintf("  %s", hintStyle.Render("("+r.Warning+")"))
 		}
 		b.WriteString(line + "\n")
+		if r.Hint != "" {
+			b.WriteString(fmt.Sprintf("      %s\n", hintStyle.Render("→ "+r.Hint)))
+		}
 	}
 
 	b.WriteString("\n")
