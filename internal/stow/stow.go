@@ -62,21 +62,9 @@ func IsStowed(dotfilesDir, moduleName, homeDir string) bool {
 		hasFiles = true
 		targetPath := filepath.Join(homeDir, rel)
 
-		linkDest, err := os.Readlink(targetPath)
-		if err != nil {
-			allLinked = false
-			return nil
-		}
-
-		// Resolve to absolute for comparison.
-		if !filepath.IsAbs(linkDest) {
-			linkDest = filepath.Join(filepath.Dir(targetPath), linkDest)
-		}
-
 		absSource, _ := filepath.Abs(path)
-		absLink, _ := filepath.Abs(linkDest)
 
-		if absSource != absLink {
+		if !isLinkedToSource(targetPath, absSource) {
 			allLinked = false
 		}
 
@@ -84,6 +72,28 @@ func IsStowed(dotfilesDir, moduleName, homeDir string) bool {
 	})
 
 	return hasFiles && allLinked
+}
+
+// isLinkedToSource checks whether targetPath resolves to absSource, either via
+// a direct symlink on the file itself or via a symlinked parent directory.
+func isLinkedToSource(targetPath, absSource string) bool {
+	// Fast path: the file itself is a symlink.
+	if linkDest, err := os.Readlink(targetPath); err == nil {
+		if !filepath.IsAbs(linkDest) {
+			linkDest = filepath.Join(filepath.Dir(targetPath), linkDest)
+		}
+		absLink, _ := filepath.Abs(linkDest)
+		return absLink == absSource
+	}
+
+	// Slow path: check if any ancestor directory is a symlink that, when
+	// resolved, makes the full path point to absSource.
+	resolved, err := filepath.EvalSymlinks(targetPath)
+	if err != nil {
+		return false
+	}
+	absResolved, _ := filepath.Abs(resolved)
+	return absResolved == absSource
 }
 
 // Stow runs GNU stow to create symlinks for the given module.
