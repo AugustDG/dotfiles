@@ -311,7 +311,11 @@ func setDefaultShell() error {
 
 	// runner.Sudo prepends sudo only when not already root; passing the target
 	// user explicitly makes both the root and non-root paths change the right
-	// account.
+	// account. With no resolvable user (e.g. root in a minimal container),
+	// fall back to a no-username chsh, which changes the calling account.
+	if user == "" {
+		return runner.Sudo("chsh", "-s", zshBin).Run()
+	}
 	return runner.Sudo("chsh", "-s", zshBin, user).Run()
 }
 

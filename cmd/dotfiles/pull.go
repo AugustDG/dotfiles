@@ -37,13 +37,25 @@ func runPull(args []string) error {
 		return err
 	}
 
-	// Validate any explicit module names up front, before any network or stow
-	// work, so a typo fails fast.
-	var named []config.Module
+	// Decide which modules to re-stow from the PRE-pull snapshot: the named
+	// ones, or every currently-installed module. Capturing it before the pull
+	// is deliberate — a module that gains a new file in this pull still reads as
+	// installed now, but would look "not stowed" afterwards (the new leaf has no
+	// link yet), so re-stowing it post-pull is exactly what links the new file.
+	var targetNames []string
 	if len(args) > 0 {
-		named, err = resolveModuleArgs(modules, args)
+		named, err := resolveModuleArgs(modules, args)
 		if err != nil {
 			return err
+		}
+		for _, mod := range named {
+			targetNames = append(targetNames, mod.Name)
+		}
+	} else {
+		for _, mod := range modules {
+			if mod.IsStowed {
+				targetNames = append(targetNames, mod.Name)
+			}
 		}
 	}
 
@@ -51,22 +63,11 @@ func runPull(args []string) error {
 		{Title: "Pull dotfiles repo", Run: func(context.Context) error { return gitops.Pull(dotfilesDir) }},
 		{Title: "Sync submodules", Run: func(context.Context) error { return gitops.SyncSubmodules(dotfilesDir) }},
 	}
-
-	if len(named) > 0 {
-		for _, mod := range named {
-			mod := mod
-			tasks = append(tasks, tui.Task{
-				Title: "Stow " + mod.Name,
-				Run:   func(context.Context) error { return stow.Stow(dotfilesDir, mod.Name, homeDir) },
-			})
-		}
-	} else {
-		// Re-stow installed modules using post-pull state, so files that
-		// appeared in this pull (including freshly-synced submodules) get linked
-		// — without stowing modules the user never chose to install.
+	for _, name := range targetNames {
+		name := name
 		tasks = append(tasks, tui.Task{
-			Title: "Re-stow installed modules",
-			Run:   func(context.Context) error { return restowInstalled(dotfilesDir, homeDir) },
+			Title: "Stow " + name,
+			Run:   func(context.Context) error { return stow.Stow(dotfilesDir, name, homeDir) },
 		})
 	}
 
@@ -75,26 +76,6 @@ func runPull(args []string) error {
 		return err
 	}
 	return firstError(errs)
-}
-
-// restowInstalled re-discovers modules after a pull and re-stows every module
-// that is currently stowed, so newly-pulled files are linked. stow -R is
-// idempotent, and modules that were never installed are left untouched.
-func restowInstalled(dotfilesDir, homeDir string) error {
-	modules, err := config.DiscoverModules(dotfilesDir)
-	if err != nil {
-		return err
-	}
-	var failed []error
-	for _, mod := range modules {
-		if !mod.IsStowed {
-			continue
-		}
-		if err := stow.Stow(dotfilesDir, mod.Name, homeDir); err != nil {
-			failed = append(failed, fmt.Errorf("%s: %w", mod.Name, err))
-		}
-	}
-	return firstError(failed)
 }
 
 // firstError returns the first non-nil error in errs, wrapped with a count of

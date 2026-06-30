@@ -88,7 +88,9 @@ func ScanRoots(dotfilesDir, homeDir string, moduleNames []string) []string {
 				top = rel[:i]
 			}
 			if heavyTopLevel[top] {
-				if dir := filepath.Dir(rel); dir != "." {
+				// Scan only the leaf's own directory, never the heavy top level
+				// itself (dir == top means the leaf sits directly under it).
+				if dir := filepath.Dir(rel); dir != "." && dir != top {
 					add(filepath.Join(homeDir, dir))
 				}
 				continue

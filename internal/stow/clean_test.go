@@ -140,6 +140,19 @@ func TestScanRoots_HeavyTopLevelBounded(t *testing.T) {
 	}
 }
 
+func TestScanRoots_HeavyLeafDirectlyUnder(t *testing.T) {
+	repo, home := setup(t)
+	// A leaf sitting directly under a heavy top level must not cause the whole
+	// heavy tree to be added as a recursive root.
+	writeFile(t, filepath.Join(repo, "x", "Library", "somefile"), "1")
+	for _, r := range ScanRoots(repo, home, []string{"x"}) {
+		if r == filepath.Join(home, "Library") {
+			t.Fatalf("must not add ~/Library wholesale for a leaf directly under it; roots=%v",
+				ScanRoots(repo, home, []string{"x"}))
+		}
+	}
+}
+
 func TestFindDangling_None(t *testing.T) {
 	repo, home := setup(t)
 	src := filepath.Join(repo, "m", ".zshrc")

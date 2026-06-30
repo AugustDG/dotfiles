@@ -137,6 +137,54 @@ func TestRunAdoptRollback(t *testing.T) {
 	}
 }
 
+// TestRestoreFromModuleUnfoldsParent verifies rollback restores a file even
+// when stow folded its parent directory into a single symlink (so the original
+// path resolves through the symlink and a naive same-inode rename would no-op).
+func TestRestoreFromModuleUnfoldsParent(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	repo := filepath.Join(root, "repo")
+	module := filepath.Join(repo, "m")
+	mustMkdir(t, filepath.Join(module, ".config", "foo"))
+	absRepo, _ := filepath.Abs(repo)
+
+	dest := filepath.Join(module, ".config", "foo", "bar.conf")
+	mustWriteFile(t, dest, "data")
+
+	// Simulate stow folding: ~/.config/foo -> repo/m/.config/foo
+	mustMkdir(t, filepath.Join(home, ".config"))
+	if err := os.Symlink(filepath.Join(module, ".config", "foo"), filepath.Join(home, ".config", "foo")); err != nil {
+		t.Fatal(err)
+	}
+	orig := filepath.Join(home, ".config", "foo", "bar.conf")
+
+	restoreFromModule(dest, orig, home, absRepo)
+
+	if fi, err := os.Lstat(filepath.Join(home, ".config", "foo")); err != nil || fi.Mode()&os.ModeSymlink != 0 {
+		t.Errorf("~/.config/foo should be a real dir after restore (mode=%v err=%v)", fiMode(fi), err)
+	}
+	fi, err := os.Lstat(orig)
+	if err != nil {
+		t.Fatalf("orig not restored: %v", err)
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		t.Error("restored file should be a regular file, not a symlink")
+	}
+	if data, _ := os.ReadFile(orig); string(data) != "data" {
+		t.Error("content lost during restore")
+	}
+	if _, err := os.Lstat(dest); err == nil {
+		t.Error("module should not retain the file after restore")
+	}
+}
+
+func fiMode(fi os.FileInfo) any {
+	if fi == nil {
+		return "nil"
+	}
+	return fi.Mode()
+}
+
 func mustMkdir(t *testing.T, dir string) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o755); err != nil {

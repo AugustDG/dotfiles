@@ -56,13 +56,7 @@ func runAdopt(name string, paths []string) error {
 	var moves []adoptMove
 	rollback := func() {
 		for i := len(moves) - 1; i >= 0; i-- {
-			orig := moves[i].orig
-			// Drop any (partial) symlink stow may have created at the original
-			// location before restoring the real file.
-			if fi, err := os.Lstat(orig); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-				os.Remove(orig)
-			}
-			_ = movePath(moves[i].dest, orig)
+			restoreFromModule(moves[i].dest, moves[i].orig, homeDir, absRepo)
 		}
 	}
 
@@ -134,6 +128,37 @@ func adoptPath(p, homeDir, moduleDir, absRepo string) (*adoptMove, error) {
 	}
 	fmt.Printf("adopted %s\n", rel)
 	return &adoptMove{dest: dest, orig: abs}, nil
+}
+
+// restoreFromModule moves dest back to its original $HOME location. It first
+// removes any symlink along orig's path that points into the repo — including a
+// stow-folded *parent* directory (e.g. ~/.config/foo -> repo/m/.config/foo) —
+// so the real path can be rebuilt and the rename does not become a no-op onto
+// the same inode.
+func restoreFromModule(dest, orig, homeDir, absRepo string) {
+	if rel, err := filepath.Rel(homeDir, orig); err == nil {
+		cur := homeDir
+		for _, part := range strings.Split(rel, string(filepath.Separator)) {
+			cur = filepath.Join(cur, part)
+			fi, err := os.Lstat(cur)
+			if err != nil {
+				continue
+			}
+			if fi.Mode()&os.ModeSymlink != 0 {
+				if tgt, err := os.Readlink(cur); err == nil {
+					if !filepath.IsAbs(tgt) {
+						tgt = filepath.Join(filepath.Dir(cur), tgt)
+					}
+					if within(filepath.Clean(tgt), absRepo) {
+						os.Remove(cur)
+					}
+				}
+				break
+			}
+		}
+	}
+	os.MkdirAll(filepath.Dir(orig), 0o755)
+	_ = movePath(dest, orig)
 }
 
 // within reports whether path is equal to or nested under dir.
