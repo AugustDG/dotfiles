@@ -47,10 +47,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		}
-		if m.view == ViewSummary && msg.String() == "enter" {
-			m.quitting = true
-			return m, tea.Quit
-		}
 	}
 
 	switch m.view {
@@ -67,9 +63,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) updatePicker(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case PickerDoneMsg:
-		m.view = ViewProgress
-		m.progress = NewProgressModel()
-		return m, m.progress.Init()
+		// The picker's only job is to capture a selection. The install itself
+		// runs in a SEPARATE program (see runModuleInstall) with its own
+		// progress model and producer goroutine. Quitting here returns control
+		// so that program can start. Advancing to ViewProgress instead would
+		// render "Installing dotfiles" and spin forever, because nothing in
+		// this program ever sends AllDoneMsg.
+		return m, tea.Quit
 	}
 
 	var cmd tea.Cmd
@@ -86,7 +86,11 @@ func (m Model) updateProgress(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.progress, _ = m.progress.Update(msg)
 		m.view = ViewSummary
 		m.summary = NewSummaryModel(m.results)
-		return m, nil
+		// Auto-exit when finished, like the task runner (RunTasks) does, so the
+		// command returns to the shell instead of waiting on a keypress. With
+		// inline (non-altscreen) rendering the final summary frame stays on
+		// screen after the program exits.
+		return m, tea.Quit
 	}
 
 	var cmd tea.Cmd
@@ -95,7 +99,10 @@ func (m Model) updateProgress(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	if m.quitting {
+	// Blank on abort (quitting) and on a confirmed selection (picker.done): in
+	// the selection program the install renders in a separate program below, so
+	// the picker frame should clear rather than linger.
+	if m.quitting || m.picker.done {
 		return ""
 	}
 	switch m.view {
@@ -119,6 +126,13 @@ func (m *Model) GetProgress() *ProgressModel {
 
 func (m Model) Quitting() bool {
 	return m.quitting
+}
+
+// PickerDone reports whether the user confirmed a selection (pressed enter), as
+// opposed to aborting with q/ctrl+c. Callers use this to tell a confirmed empty
+// selection apart from an abort, which SelectedModules alone cannot express.
+func (m Model) PickerDone() bool {
+	return m.picker.done
 }
 
 func (m Model) SelectedModules() []config.Module {

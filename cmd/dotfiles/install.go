@@ -96,7 +96,9 @@ func selectModulesInteractively(modules []config.Module) ([]config.Module, bool,
 	}
 
 	selection := finalModel.(tui.Model)
-	if selection.Quitting() {
+	if !selection.PickerDone() {
+		// Aborted with q/ctrl+c before confirming — distinct from confirming an
+		// empty selection, which is a valid (if no-op) choice.
 		return nil, false, nil
 	}
 	return selection.SelectedModules(), true, nil

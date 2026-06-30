@@ -59,7 +59,5 @@ func (m SummaryModel) View() string {
 		}
 	}
 
-	b.WriteString("\n")
-	b.WriteString(hintStyle.Render("Press q or enter to exit"))
 	return b.String()
 }
