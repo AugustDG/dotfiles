@@ -39,6 +39,7 @@ gcp() {
   git checkout "$1" && git pull
 }
 
+alias cd='z'
 alias th='treehouse'
 alias no='no-mistakes'
 alias gp='git pull'
