@@ -126,7 +126,14 @@ func (inst *Installer) RunBootstrap() error {
 		if _, err := exec.LookPath("hopper"); err == nil {
 			return nil
 		}
-		return installHopper()
+		return installReleaseBinary(HopperRepo, "hopper")
+	})
+
+	_ = inst.bootstrapStep("Install gho", func() error {
+		if _, err := exec.LookPath("gho"); err == nil {
+			return nil
+		}
+		return installReleaseBinary(GhottoRepo, "gho")
 	})
 
 	_ = inst.bootstrapStep("Backup conflicting files", func() error {
@@ -216,40 +223,39 @@ func orDefault(v, def []string) []string {
 	return def
 }
 
-func installHopper() error {
-	goos := runtime.GOOS
-	goarch := runtime.GOARCH
-	asset := fmt.Sprintf("hopper_%s_%s.tar.gz", goos, goarch)
-	url := fmt.Sprintf("https://github.com/%s/releases/latest/download/%s", HopperRepo, asset)
+// installReleaseBinary downloads the latest GitHub release tarball for a
+// GoReleaser-style repo and installs the contained binary into ~/.local/bin
+// (which the dotfiles put on PATH). It assumes the asset is named
+// "<bin>_<goos>_<goarch>.tar.gz" and unpacks to a single executable named
+// <bin> — the convention shared by hopper (AugustDG/hopper) and gho
+// (AugustDG/ghotto).
+func installReleaseBinary(repo, bin string) error {
+	asset := fmt.Sprintf("%s_%s_%s.tar.gz", bin, runtime.GOOS, runtime.GOARCH)
+	url := fmt.Sprintf("https://github.com/%s/releases/latest/download/%s", repo, asset)
 
-	tmpDir, err := os.MkdirTemp("", "hopper-install-*")
+	tmpDir, err := os.MkdirTemp("", bin+"-install-*")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(tmpDir)
 
 	tarball := filepath.Join(tmpDir, asset)
-	dl := exec.Command("curl", "-fsSL", "-o", tarball, url)
-	if err := dl.Run(); err != nil {
-		return fmt.Errorf("download hopper: %w", err)
+	if err := exec.Command("curl", "-fsSL", "-o", tarball, url).Run(); err != nil {
+		return fmt.Errorf("download %s: %w", bin, err)
 	}
-
-	extract := exec.Command("tar", "-xzf", tarball, "-C", tmpDir)
-	if err := extract.Run(); err != nil {
-		return fmt.Errorf("extract hopper: %w", err)
+	if err := exec.Command("tar", "-xzf", tarball, "-C", tmpDir).Run(); err != nil {
+		return fmt.Errorf("extract %s: %w", bin, err)
 	}
 
 	binDir := filepath.Join(platform.HomeDir(), ".local", "bin")
-	os.MkdirAll(binDir, 0o755)
-
-	src := filepath.Join(tmpDir, "hopper")
-	dst := filepath.Join(binDir, "hopper")
-	cp := exec.Command("cp", src, dst)
-	if err := cp.Run(); err != nil {
-		return fmt.Errorf("install hopper binary: %w", err)
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		return err
 	}
-	os.Chmod(dst, 0o755)
-	return nil
+	dst := filepath.Join(binDir, bin)
+	if err := exec.Command("cp", filepath.Join(tmpDir, bin), dst).Run(); err != nil {
+		return fmt.Errorf("install %s binary: %w", bin, err)
+	}
+	return os.Chmod(dst, 0o755)
 }
 
 func backupConflicts(homeDir string, targets []string) error {

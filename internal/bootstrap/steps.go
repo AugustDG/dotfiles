@@ -22,6 +22,7 @@ var CoreBrewPackages = []string{
 
 const (
 	HopperRepo = "AugustDG/hopper"
+	GhottoRepo = "AugustDG/ghotto" // provides the `gho` binary
 	ZnapURL    = "https://github.com/marlonrichert/zsh-snap.git"
 	ZnapDir    = ".plugins/znap"
 )
