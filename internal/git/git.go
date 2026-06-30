@@ -181,38 +181,47 @@ func CurrentBranch(path string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// BranchAtHead returns a local branch whose tip is the current HEAD commit
-// (preferring main/master), and whether such a branch exists. It lets a caller
-// re-attach a detached HEAD — the common state of a freshly-updated submodule —
-// to its branch without moving any content, since the branch is already at HEAD.
-func BranchAtHead(path string) (string, bool) {
-	out, err := exec.Command("git", "-C", path, "branch", "--points-at", "HEAD", "--format=%(refname:short)").Output()
+// AttachableBranch returns a local branch that can host commits made at the
+// current (detached) HEAD without losing history — i.e. a branch that is an
+// ancestor of, or equal to, HEAD, so re-pointing it at HEAD is a fast-forward.
+// This is the common state of a freshly-updated submodule (detached at the
+// pinned commit, with a possibly-stale local branch behind it). Prefers
+// main/master. ok is false when HEAD diverges from every local branch, in
+// which case the caller should refuse to guess rather than risk losing commits.
+func AttachableBranch(path string) (string, bool) {
+	out, err := exec.Command("git", "-C", path, "for-each-ref", "--format=%(refname:short)", "refs/heads").Output()
 	if err != nil {
 		return "", false
 	}
-	var branches []string
+	var candidates []string
 	for _, line := range strings.Split(string(out), "\n") {
 		b := strings.TrimSpace(line)
-		// Skip blanks and the "(HEAD detached at …)" pseudo-entry.
-		if b == "" || strings.ContainsAny(b, "( \t") {
+		if b == "" {
 			continue
 		}
-		branches = append(branches, b)
+		// Only branches that are an ancestor of (or equal to) HEAD are safe to
+		// fast-forward onto HEAD; an ahead/divergent branch would lose commits.
+		if exec.Command("git", "-C", path, "merge-base", "--is-ancestor", b, "HEAD").Run() == nil {
+			candidates = append(candidates, b)
+		}
 	}
-	if len(branches) == 0 {
+	if len(candidates) == 0 {
 		return "", false
 	}
-	for _, b := range branches {
+	for _, b := range candidates {
 		if b == "main" || b == "master" {
 			return b, true
 		}
 	}
-	return branches[0], true
+	return candidates[0], true
 }
 
-// Checkout switches the repo at path to the given branch.
-func Checkout(path, branch string) error {
-	return runGit("-C", path, "checkout", branch)
+// AttachBranch points branch at the current HEAD (a fast-forward when the
+// branch is behind) and checks it out, preserving any working-tree changes.
+// Callers must have verified the branch is an ancestor of HEAD (see
+// AttachableBranch) so the reset never discards commits.
+func AttachBranch(path, branch string) error {
+	return runGit("-C", path, "checkout", "-B", branch)
 }
 
 // HasUnpushed reports whether HEAD has commits not on its upstream. Returns

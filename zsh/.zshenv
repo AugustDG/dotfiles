@@ -21,3 +21,6 @@ fi
 # bun
 export BUN_INSTALL="$HOME/.bun"
 [[ ":$PATH:" != *":$BUN_INSTALL/bin:"* ]] && export PATH="$BUN_INSTALL/bin:$PATH"
+
+# Z
+export _ZO_DOCTOR=0

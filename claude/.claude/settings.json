@@ -3,36 +3,34 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "permissions": {
-    "allow": [
-      "*"
-    ],
+    "allow": [],
     "defaultMode": "bypassPermissions"
+  },
+  "model": "opus[1m]",
+  "worktree": {
+    "bgIsolation": "none"
   },
   "statusLine": {
     "type": "command",
-    "command": "bash \"$HOME/.claude/statusline-command.sh\""
+    "command": "bash /Users/augusto.pinheiro/.claude/statusline-command.sh"
   },
   "enabledPlugins": {
     "swift-lsp@claude-plugins-official": true,
-    "skills@botpress-marketplace": true
+    "posthog@claude-plugins-official": false,
+    "typescript-lsp@claude-plugins-official": true
   },
-  "extraKnownMarketplaces": {
-    "botpress-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "botpress/botpress-claude-marketplace",
-        "ref": "adk-263-point-adk-plugin-to-skills-repo"
-      }
-    }
-  },
+  "extraKnownMarketplaces": {},
+  "effortLevel": "xhigh",
   "awaySummaryEnabled": false,
+  "tui": "fullscreen",
   "voice": {
     "enabled": true,
     "mode": "hold"
   },
   "skipDangerousModePermissionPrompt": true,
-  "theme": "auto",
+  "theme": "light",
   "verbose": true,
   "remoteControlAtStartup": true,
+  "agentPushNotifEnabled": false,
   "voiceEnabled": true
 }
