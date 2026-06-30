@@ -4,6 +4,10 @@
         https://github.com/marlonrichert/zsh-snap.git ~/.plugins/znap
 source ~/.plugins/znap/znap.zsh  # Start Znap
 
+# Custom completion functions (treehouse, no-mistakes, …) live here. Znap defers
+# compinit to the first prompt, so this dir just needs to be on fpath before then.
+fpath=(~/.zsh/completions(N) $fpath)
+
 # macOS defaults to 256 open files which is too low for tmux + plugins
 ulimit -n 10240 2>/dev/null
 
@@ -36,11 +40,12 @@ gcp() {
 }
 
 alias th='treehouse'
+alias no='no-mistakes'
 alias gp='git pull'
 alias gs='git status'
 alias cdr='cd "$(git rev-parse --show-toplevel)"'
 alias codex='command codex --dangerously-bypass-approvals-and-sandbox'
-alias claude='claude --model "claude-opus-4-8" --effort xhigh'
+alias claude='claude --model "claude-opus-4-6[1m]" --effort xhigh'
 
 cdw() {
   if [[ -z "$1" ]]; then
@@ -122,6 +127,7 @@ if (( $+functions[compdef] )); then
   compdef _git gs=git-status
   compdef _git gagc=git-add
   compdef _treehouse th
+  compdef _no-mistakes no
 fi
 
 
