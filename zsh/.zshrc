@@ -4,6 +4,8 @@
         https://github.com/marlonrichert/zsh-snap.git ~/.plugins/znap
 source ~/.plugins/znap/znap.zsh  # Start Znap
 
+fpath=(~/.zsh/completions $fpath)
+
 # macOS defaults to 256 open files which is too low for tmux + plugins
 ulimit -n 10240 2>/dev/null
 
@@ -35,6 +37,8 @@ gcp() {
   git checkout "$1" && git pull
 }
 
+alias th='treehouse'
+alias cd='z'
 alias gp='git pull'
 alias gs='git status'
 alias cdr='cd "$(git rev-parse --show-toplevel)"'
@@ -120,6 +124,7 @@ if (( $+functions[compdef] )); then
   compdef _git gp=git-pull
   compdef _git gs=git-status
   compdef _git gagc=git-add
+  compdef _treehouse th
 fi
 
 
