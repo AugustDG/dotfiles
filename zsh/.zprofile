@@ -9,6 +9,14 @@ for brew_prefix in /opt/homebrew /usr/local /home/linuxbrew/.linuxbrew "$HOME/.l
   fi
 done
 
+# brew shellenv prepends Homebrew's site-functions to fpath. Its _git is a
+# wrapper around the bash completion script and shadows zsh's native _git,
+# breaking the git compdefs in .zshrc. Demote it so native completions win;
+# Homebrew completions without a native counterpart still resolve.
+if [[ -n "${HOMEBREW_PREFIX:-}" ]]; then
+  fpath=(${fpath:#$HOMEBREW_PREFIX/share/zsh/site-functions} "$HOMEBREW_PREFIX/share/zsh/site-functions")
+fi
+
 # --- Editor ---
 export EDITOR=nvim
 
