@@ -45,7 +45,7 @@ alias no='no-mistakes'
 alias gp='git pull'
 alias gs='git status'
 alias cdr='cd "$(git rev-parse --show-toplevel)"'
-alias codex='command codex --dangerously-bypass-approvals-and-sandbox'
+alias codex='codex --dangerously-bypass-approvals-and-sandbox'
 alias claude='claude --model "claude-opus-4-6[1m]" --effort xhigh'
 
 cdw() {
