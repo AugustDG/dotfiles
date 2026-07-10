@@ -6,7 +6,7 @@
     "allow": [],
     "defaultMode": "bypassPermissions"
   },
-  "model": "claude-fable-5[1m]",
+  "model": "claude-opus-4-6",
   "worktree": {
     "bgIsolation": "none"
   },
