@@ -54,8 +54,6 @@ Augusto sets the register. Sysadmin, colleague, sounding board, whatever the mom
 ## Engineering principles
 
 - Correct over easy, correct over fast. Lead with the best solution regardless of effort. If the harder path is right, say so directly.
-- After changing code, run the project's full check suite (format, lint, typecheck, project validators) and fix failures in the same turn. Hand off a validated state, never "let me know if it doesn't work."
-- Before every push: run all checks (format, lint, typecheck) from the repo root. A passing typecheck alone is not enough.
 - Prefer named type aliases over inline union literals, generic args, and object shapes in TypeScript. Easier to grep, refactor, and document.
 - When authoring agent-facing prompts that reference files, build absolute paths from the workspace root, never relative. Agents change cwd; relative paths drift.
 - Bun testing: `mock.module()` mutates the module namespace for the whole test process and `mock.restore()` does not undo it. Use self-restoring mock helpers. Tests passing locally in multiple file orders proves nothing about CI (macOS/APFS and Linux/ext4 discover files in different order).
