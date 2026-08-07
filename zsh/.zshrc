@@ -47,6 +47,15 @@ alias gs='git status'
 alias cdr='cd "$(git rev-parse --show-toplevel)"'
 alias codex='codex --dangerously-bypass-approvals-and-sandbox'
 alias claude='claude --model "claude-opus-4-6[1m]" --effort xhigh'
+po() {
+  local node_bin pi_cli
+  node_bin="$(nvm which 22 2>/dev/null)" || {
+    echo "po: compatible Node 22 runtime not found; run 'nvm install 22'" >&2
+    return 1
+  }
+  pi_cli="$HOME/.bun/install/global/node_modules/@earendil-works/pi-coding-agent/dist/cli.js"
+  "$node_bin" "$pi_cli" "$@"
+}
 
 cdw() {
   if [[ -z "$1" ]]; then
