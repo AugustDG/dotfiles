@@ -1,0 +1,13 @@
+# Sensitive credentials
+/auth.json
+
+# Runtime state and conversation history
+/sessions/
+/session-messages/
+/models-store.json
+
+# Extension-local generated dependencies and output
+/extensions/**/node_modules/
+/extensions/**/dist/
+/extensions/**/out/
+/extensions/**/*.log

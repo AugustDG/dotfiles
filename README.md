@@ -96,6 +96,7 @@ Module-name arguments (`install`, `uninstall`, `update`, `pull`, `sync`,
 zsh/       → ~/.zshenv, ~/.zprofile, ~/.zshrc
 git/       → ~/.gitconfig
 claude/    → ~/.claude/{CLAUDE.md, settings.json, skills/}
+pi/        → ~/.pi/agent/{settings, keybindings, themes, mcp config, extensions}
 nvim/      → ~/.config/nvim      (submodule AugustDG/nvim-config)
 tmux/      → ~/.config/tmux      (submodule AugustDG/tmux-config)
 yazi/      → ~/.config/yazi      (submodule AugustDG/yazi-config)
@@ -139,6 +140,10 @@ bootstrap works before the repo is even cloned. Edit it to change the toolchain.
 `.zprofile` sources `~/.zshrc.local` if it exists. Put machine-specific exports
 there (e.g. `CLOUD_PAT`) — the file is never tracked. `dotfiles doctor` warns if
 it's missing.
+
+The `pi` module tracks portable settings and extension sources, but intentionally
+excludes `auth.json`, sessions, session-message runtime data, model caches, and
+extension `node_modules`.
 
 ## Development
 

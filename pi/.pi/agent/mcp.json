@@ -1,0 +1,98 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
+  "servers": {
+    "chrome-devtools": {
+      "enabled": true,
+      "description": "Inspect, debug, and automate Chrome through DevTools.",
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ]
+    },
+    "greptile": {
+      "enabled": true,
+      "description": "Search codebases and access Greptile code-review context.",
+      "transport": "http",
+      "url": "https://api.greptile.com/mcp",
+      "headers": {
+        "Authorization": "$GREPTILE_MCP_AUTHORIZATION"
+      }
+    },
+    "node_repl": {
+      "enabled": true,
+      "description": "Use the Codex desktop Node REPL and its browser/computer-use runtime.",
+      "transport": "stdio",
+      "command": "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl",
+      "args": [],
+      "env": {
+        "NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS": "1000",
+        "NODE_REPL_NODE_MODULE_DIRS": "/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules",
+        "NODE_REPL_NODE_PATH": "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node",
+        "NODE_REPL_TRUSTED_CODE_PATHS": "/Users/augusto.pinheiro/.codex",
+        "CODEX_HOME": "/Users/augusto.pinheiro/.codex",
+        "NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S": "0b03c76c1d0f3d4c81f89f58ff210ae6709fd1204d2c5a4fdffa0a7bdb961b96,6d25aa7656feac858f3a3bdaea5bcbab0dbfd426c9de8e6931ce90c399ee8e4f",
+        "BROWSER_USE_AVAILABLE_BACKENDS": "chrome,iab",
+        "NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER": "Control the in-app browser in conjunction with the Browser Plugin.",
+        "NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME": "Control the Chrome browser in conjunction with the Chrome Plugin. Prefer this method of controlling Chrome over alternatives (such as Computer Use) unless the user explicitly mentions an alternative.",
+        "NODE_REPL_INSTRUCTIONS_USE_CASE_COMPUTER_USE": "Control desktop apps on macOS through Computer Use.",
+        "BROWSER_USE_CODEX_APP_BUILD_FLAVOR": "prod",
+        "BROWSER_USE_CODEX_APP_VERSION": "26.715.61943",
+        "SKY_CUA_SERVICE_PATH": "/Users/augusto.pinheiro/.codex/plugins/cache/openai-bundled/computer-use/1.0.1000451/Codex Computer Use.app",
+        "CODEX_CLI_PATH": "/Applications/ChatGPT.app/Contents/Resources/codex"
+      },
+      "startupTimeoutMs": 120000
+    },
+    "computer-use": {
+      "enabled": true,
+      "description": "Use the signed Codex relay to control local Mac apps through the installed Computer Use plugin.",
+      "transport": "stdio",
+      "command": "/Applications/ChatGPT.app/Contents/Resources/codex",
+      "args": [
+        "mcp-server"
+      ],
+      "startupTimeoutMs": 20000,
+      "toolTimeoutMs": 300000
+    },
+    "openaiDeveloperDocs": {
+      "enabled": true,
+      "description": "Search and read official OpenAI developer documentation.",
+      "transport": "http",
+      "url": "https://developers.openai.com/mcp"
+    },
+    "firefall": {
+      "enabled": true,
+      "description": "Access the local Firefall development MCP server.",
+      "transport": "http",
+      "url": "http://127.0.0.1:7767/mcp"
+    },
+    "vex": {
+      "enabled": true,
+      "description": "Access the local Vex development MCP server.",
+      "transport": "http",
+      "url": "http://127.0.0.1:3849/mcp"
+    },
+    "sauron-staging": {
+      "enabled": true,
+      "description": "Access the Sauron staging environment.",
+      "transport": "http",
+      "url": "https://sauron.botpress.dev/pat/palantir/mcp",
+      "headers": {
+        "Authorization": "$SAURON_STAGING_MCP_AUTHORIZATION"
+      }
+    },
+    "sauron-prod": {
+      "enabled": true,
+      "description": "Access the Sauron production environment.",
+      "transport": "http",
+      "url": "https://sauron.botpress.cloud/pat/mcp",
+      "headers": {
+        "Authorization": "$SAURON_PROD_MCP_AUTHORIZATION"
+      }
+    }
+  },
+  "defaults": {
+    "startupTimeoutMs": 15000,
+    "toolTimeoutMs": 120000
+  }
+}
