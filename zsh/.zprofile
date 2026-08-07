@@ -34,3 +34,7 @@ fi
 
 # --- Machine-local overrides / secrets (never tracked) ---
 [[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+
+# >>> Codex installer >>>
+export PATH="/Users/augusto.pinheiro/.local/bin:$PATH"
+# <<< Codex installer <<<
