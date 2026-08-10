@@ -5,6 +5,14 @@ import type { AutocompleteProvider, Component, EditorComponent, EditorTheme, TUI
 const CLIPBOARD_FILE_NAME = /^pi-clipboard-[0-9a-f-]+\.(?:png|jpe?g|gif|webp|bmp)$/i;
 const CLIPBOARD_PATH = /(?:\/[^\s`"'<>]+)*\/pi-clipboard-[0-9a-f-]+\.(?:png|jpe?g|gif|webp|bmp)/gi;
 const IMAGE_MARKER = /\[Image #(\d+)\]/g;
+const FAKE_CURSOR = /\x1b\[7m([^\x1b]*)\x1b\[(?:0|27)m/g;
+const FOCUS_IN = "\x1b[I";
+const FOCUS_OUT = "\x1b[O";
+const TERMINAL_FOCUS_EVENT = "po:terminal-focus";
+
+function hideFakeCursor(line: string): string {
+	return line.replace(FAKE_CURSOR, "$1");
+}
 
 interface AppAwareEditor extends EditorComponent {
 	actionHandlers?: Map<unknown, () => void>;
@@ -25,6 +33,7 @@ class ImageLabelEditor implements EditorComponent {
 	constructor(
 		private readonly base: AppAwareEditor,
 		private readonly accent: (text: string) => string,
+		private readonly hasTerminalFocus: () => boolean,
 	) {}
 
 	get actionHandlers(): Map<unknown, () => void> | undefined {
@@ -123,7 +132,10 @@ class ImageLabelEditor implements EditorComponent {
 	}
 
 	render(width: number): string[] {
-		return this.base.render(width).map((line) => line.replace(IMAGE_MARKER, (marker) => this.accent(marker)));
+		return this.base.render(width).map((line) => {
+			const labeled = line.replace(IMAGE_MARKER, (marker) => this.accent(marker));
+			return this.focused && this.hasTerminalFocus() ? labeled : hideFakeCursor(labeled);
+		});
 	}
 
 	invalidate(): void {
@@ -175,15 +187,42 @@ class ImageLabelEditor implements EditorComponent {
 
 export default function imagePasteLabel(pi: ExtensionAPI) {
 	let activeEditor: ImageLabelEditor | undefined;
+	let activeTui: TUI | undefined;
+	let terminalFocused = true;
+	let focusInputTail = "";
+	let removeFocusListener: (() => void) | undefined;
 
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
+		terminalFocused = true;
+		focusInputTail = "";
+		const onTerminalInput = (data: string | Buffer) => {
+			const chunk = typeof data === "string" ? data : data.toString("utf8");
+			const input = focusInputTail + chunk;
+			focusInputTail = input.slice(-2);
+			const focusInIndex = input.lastIndexOf(FOCUS_IN);
+			const focusOutIndex = input.lastIndexOf(FOCUS_OUT);
+			if (focusInIndex < 0 && focusOutIndex < 0) return;
+			const focused = focusInIndex > focusOutIndex;
+			if (focused === terminalFocused) return;
+			terminalFocused = focused;
+			pi.events.emit(TERMINAL_FOCUS_EVENT, focused);
+			activeTui?.requestRender();
+		};
+		process.stdin.on("data", onTerminalInput);
+		removeFocusListener = () => process.stdin.removeListener("data", onTerminalInput);
+
 		const previousFactory = ctx.ui.getEditorComponent();
 		ctx.ui.setEditorComponent((tui: TUI, editorTheme: EditorTheme, keybindings: KeybindingsManager) => {
+			activeTui = tui;
 			const base = previousFactory
 				? (previousFactory(tui, editorTheme, keybindings) as AppAwareEditor)
 				: new CustomEditor(tui, editorTheme, keybindings);
-			activeEditor = new ImageLabelEditor(base, (text) => ctx.ui.theme.fg("accent", text));
+			activeEditor = new ImageLabelEditor(
+				base,
+				(text) => ctx.ui.theme.fg("accent", text),
+				() => terminalFocused,
+			);
 			return activeEditor;
 		});
 	});
@@ -202,6 +241,10 @@ export default function imagePasteLabel(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_shutdown", () => {
+		removeFocusListener?.();
+		removeFocusListener = undefined;
+		focusInputTail = "";
 		activeEditor = undefined;
+		activeTui = undefined;
 	});
 }

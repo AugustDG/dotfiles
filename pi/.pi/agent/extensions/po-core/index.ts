@@ -414,7 +414,13 @@ export default function poCore(pi: ExtensionAPI) {
 		taskStartedAt = undefined;
 		const hadToolError = taskHadToolError;
 		taskHadToolError = false;
-		if (!startedAt || Date.now() - startedAt < NOTIFICATION_THRESHOLD_MS || process.platform !== "darwin") return;
+		if (
+			!startedAt ||
+			Date.now() - startedAt < NOTIFICATION_THRESHOLD_MS ||
+			process.platform !== "darwin" ||
+			process.env.PO_SUPPRESS_COMPLETION_NOTIFICATION === "1"
+		)
+			return;
 
 		const sessionName = pi.getSessionName() ?? (basename(process.cwd()) || "workspace");
 		const body = `${hadToolError ? "Finished with tool errors" : "Task finished"} in ${formatDuration(Date.now() - startedAt)} — ${sessionName}`;

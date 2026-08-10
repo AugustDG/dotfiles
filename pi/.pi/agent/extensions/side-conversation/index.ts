@@ -20,6 +20,12 @@ const STATE_ENTRY = "side-conversation-state";
 const MAX_MAIN_CONTEXT_CHARS = 30_000;
 const MAX_PERSISTED_TURNS = 50;
 const SHORTCUT = "ctrl+shift+s";
+const FAKE_CURSOR = /\x1b\[7m([^\x1b]*)\x1b\[(?:0|27)m/g;
+const TERMINAL_FOCUS_EVENT = "po:terminal-focus";
+
+function hideFakeCursor(line: string): string {
+	return line.replace(FAKE_CURSOR, "$1");
+}
 
 interface SideTurn {
 	user: string;
@@ -352,6 +358,7 @@ class SideConversationPanel implements Component, Focusable {
 		private readonly theme: Theme,
 		private readonly ctx: ExtensionContext,
 		private readonly getState: () => SideState,
+		private readonly hasTerminalFocus: () => boolean,
 		private readonly persist: () => void,
 		private readonly onClose: () => void,
 	) {
@@ -454,11 +461,6 @@ class SideConversationPanel implements Component, Focusable {
 			this.toggleFocus();
 			return;
 		}
-		if (matchesKey(data, "tab")) {
-			this.handle?.unfocus();
-			this.requestRender();
-			return;
-		}
 		if (matchesKey(data, "left") && this.inputIsAtStart()) {
 			this.handle?.unfocus();
 			this.requestRender();
@@ -534,7 +536,8 @@ class SideConversationPanel implements Component, Focusable {
 		for (const line of visibleTranscript) lines.push(border("│") + this.padded(line, innerWidth) + border("│"));
 
 		lines.push(border("├") + border("─".repeat(innerWidth)) + border("┤"));
-		const [inputLine = ""] = this.input.render(innerWidth);
+		const [renderedInput = ""] = this.input.render(innerWidth);
+		const inputLine = this.focused && this.hasTerminalFocus() ? renderedInput : hideFakeCursor(renderedInput);
 		lines.push(border("│") + this.padded(inputLine, innerWidth) + border("│"));
 		const status = this.status ? ` ${this.status}` : "";
 		lines.push(border("│") + this.padded(this.theme.fg("dim", status), innerWidth) + border("│"));
@@ -545,7 +548,7 @@ class SideConversationPanel implements Component, Focusable {
 		);
 		lines.push(
 			border("│") +
-				this.padded(this.theme.fg("dim", " Tab main · Esc close"), innerWidth) +
+				this.padded(this.theme.fg("dim", " Esc close"), innerWidth) +
 				border("│"),
 		);
 		lines.push(border(`╰${"─".repeat(innerWidth)}╯`));
@@ -568,6 +571,13 @@ export default function sideConversationExtension(pi: ExtensionAPI) {
 	let active: ActivePanel | undefined;
 	let restoreEditor: (() => void) | undefined;
 	let editorInstalled = false;
+	let terminalFocused = true;
+
+	pi.events.on(TERMINAL_FOCUS_EVENT, (focused) => {
+		if (typeof focused !== "boolean" || focused === terminalFocused) return;
+		terminalFocused = focused;
+		active?.panel.requestRender();
+	});
 
 	const persist = () => {
 		pi.appendEntry(STATE_ENTRY, {
@@ -615,7 +625,15 @@ export default function sideConversationExtension(pi: ExtensionAPI) {
 		const promise = ctx.ui.custom<void>(
 			(tui, theme, _keybindings, done) => {
 				doneOverlay = () => done();
-				panel = new SideConversationPanel(tui, theme, ctx, () => state, persist, () => done());
+				panel = new SideConversationPanel(
+					tui,
+					theme,
+					ctx,
+					() => state,
+					() => terminalFocused,
+					persist,
+					() => done(),
+				);
 				return panel;
 			},
 			{

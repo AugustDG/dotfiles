@@ -297,6 +297,7 @@ async function runTask(
 		let finalAssistantText = "";
 		const child = spawn(invocation.command, invocation.args, {
 			cwd,
+			env: { ...process.env, PO_SUPPRESS_COMPLETION_NOTIFICATION: "1" },
 			shell: false,
 			stdio: ["ignore", "pipe", "pipe"],
 		});

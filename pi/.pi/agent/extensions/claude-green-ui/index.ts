@@ -164,7 +164,7 @@ export default function poGreenUi(pi: ExtensionAPI) {
 
 			render(width: number): string[] {
 				const lines = super.render(width);
-				if (lines.length < 2) return lines;
+				if (lines.length < 2 || activeContext !== ctx) return lines;
 
 				const theme = ctx.ui.theme;
 				const model = ctx.model?.id ?? "no model";
@@ -196,8 +196,8 @@ export default function poGreenUi(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_shutdown", () => {
+		activeContext = undefined;
 		stopSpinner();
 		activeTui = undefined;
-		activeContext = undefined;
 	});
 }

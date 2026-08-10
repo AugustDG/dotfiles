@@ -60,6 +60,20 @@
       "transport": "http",
       "url": "https://developers.openai.com/mcp"
     },
+    "linear": {
+      "enabled": true,
+      "description": "Access Linear issues, projects, and workspace context through OAuth.",
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@0.1.38",
+        "https://mcp.linear.app/mcp",
+        "--auth-timeout",
+        "120"
+      ],
+      "startupTimeoutMs": 120000
+    },
     "firefall": {
       "enabled": true,
       "description": "Access the local Firefall development MCP server.",

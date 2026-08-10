@@ -309,7 +309,14 @@ export default function mcpExtension(pi: ExtensionAPI) {
 
 		if (server.transport === "http") {
 			transport = new StreamableHTTPClientTransport(new URL(expandEnvironment(server.url)), {
-				requestInit: { headers: resolveStringMap(server.headers) },
+				requestInit: {
+					headers: {
+						...resolveStringMap(server.headers),
+						// Undici can advertise zstd even when the active runtime cannot decode it,
+						// which throws from its response parser as an uncaught exception.
+						"accept-encoding": "br, gzip, deflate",
+					},
+				},
 			});
 		} else {
 			const inherited = getDefaultEnvironment();
@@ -384,6 +391,7 @@ export default function mcpExtension(pi: ExtensionAPI) {
 		usedToolNames.add(name);
 		byRemoteName.set(remoteTool.name, name);
 		const server = config.servers[serverName];
+		if (!server) throw new Error(`Unknown MCP server: ${serverName}`);
 
 		pi.registerTool({
 			name,
