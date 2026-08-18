@@ -19,9 +19,18 @@
         "Authorization": "$GREPTILE_MCP_AUTHORIZATION"
       }
     },
+    "repowise": {
+      "enabled": true,
+      "description": "Query the current repository's RepoWise codebase intelligence index.",
+      "transport": "stdio",
+      "command": "repowise",
+      "args": [
+        "mcp"
+      ]
+    },
     "node_repl": {
       "enabled": true,
-      "description": "Use the Codex desktop Node REPL and its browser/computer-use runtime.",
+      "description": "Use the Codex desktop Node REPL and its browser runtime.",
       "transport": "stdio",
       "command": "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl",
       "args": [],
@@ -34,31 +43,12 @@
         "NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S": "0b03c76c1d0f3d4c81f89f58ff210ae6709fd1204d2c5a4fdffa0a7bdb961b96,6d25aa7656feac858f3a3bdaea5bcbab0dbfd426c9de8e6931ce90c399ee8e4f",
         "BROWSER_USE_AVAILABLE_BACKENDS": "chrome,iab",
         "NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER": "Control the in-app browser in conjunction with the Browser Plugin.",
-        "NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME": "Control the Chrome browser in conjunction with the Chrome Plugin. Prefer this method of controlling Chrome over alternatives (such as Computer Use) unless the user explicitly mentions an alternative.",
-        "NODE_REPL_INSTRUCTIONS_USE_CASE_COMPUTER_USE": "Control desktop apps on macOS through Computer Use.",
+        "NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME": "Control the Chrome browser in conjunction with the Chrome Plugin.",
         "BROWSER_USE_CODEX_APP_BUILD_FLAVOR": "prod",
         "BROWSER_USE_CODEX_APP_VERSION": "26.715.61943",
-        "SKY_CUA_SERVICE_PATH": "/Users/augusto.pinheiro/.codex/plugins/cache/openai-bundled/computer-use/1.0.1000451/Codex Computer Use.app",
         "CODEX_CLI_PATH": "/Applications/ChatGPT.app/Contents/Resources/codex"
       },
       "startupTimeoutMs": 120000
-    },
-    "computer-use": {
-      "enabled": true,
-      "description": "Use the signed Codex relay to control local Mac apps through the installed Computer Use plugin.",
-      "transport": "stdio",
-      "command": "/Applications/ChatGPT.app/Contents/Resources/codex",
-      "args": [
-        "mcp-server"
-      ],
-      "startupTimeoutMs": 20000,
-      "toolTimeoutMs": 300000
-    },
-    "openaiDeveloperDocs": {
-      "enabled": true,
-      "description": "Search and read official OpenAI developer documentation.",
-      "transport": "http",
-      "url": "https://developers.openai.com/mcp"
     },
     "linear": {
       "enabled": true,

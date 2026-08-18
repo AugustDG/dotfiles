@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { compact, withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { constants as fsConstants } from "node:fs";
@@ -13,6 +13,10 @@ const MCP_PATH = join(AGENT_DIR, "mcp.json");
 const PREFERENCES_PATH = join(AGENT_DIR, "preferences.md");
 const SETTINGS_PATH = join(AGENT_DIR, "settings.json");
 const NOTIFICATION_THRESHOLD_MS = 10_000;
+const TITLE_PROVIDER = "fireworks";
+const TITLE_MODEL = "accounts/fireworks/models/deepseek-v4-flash-0731";
+const TITLE_MAX_PROMPT_CHARS = 2_000;
+const TITLE_MAX_CHARS = 60;
 const DEFAULT_PREFERENCES = ["Refer to yourself as Po when a name is useful."];
 const COMPACTION_INSTRUCTIONS = `Preserve continuity with extra care. In addition to the standard structured summary:
 - Record explicit user corrections and standing preferences under Constraints & Preferences.
@@ -120,8 +124,54 @@ function deriveSessionName(prompt: string): string | undefined {
 	if (!cleaned) return undefined;
 	const words = cleaned.split(" ").slice(0, 8);
 	let name = words.join(" ").replace(/[.,;:!?]+$/g, "");
-	if (name.length > 60) name = `${name.slice(0, 57).trimEnd()}…`;
+	if (name.length > TITLE_MAX_CHARS) name = `${name.slice(0, TITLE_MAX_CHARS - 3).trimEnd()}…`;
 	return name || undefined;
+}
+
+function normalizeGeneratedSessionName(value: string): string | undefined {
+	let name = value
+		.replace(/^```(?:text)?\s*/i, "")
+		.replace(/\s*```$/i, "")
+		.split("\n")
+		.map((line) => line.trim())
+		.find(Boolean)
+		?.replace(/^title\s*:\s*/i, "")
+		.replace(/^["'`]+|["'`]+$/g, "")
+		.replace(/[`*_#>]/g, "")
+		.replace(/\s+/g, " ")
+		.replace(/[.!?]+$/g, "")
+		.trim();
+	if (!name) return undefined;
+	const words = name.split(" ").slice(0, 10);
+	name = words.join(" ");
+	if (name.length > TITLE_MAX_CHARS) name = `${name.slice(0, TITLE_MAX_CHARS - 3).trimEnd()}…`;
+	return name || undefined;
+}
+
+async function generateSessionName(prompt: string, ctx: ExtensionContext, signal: AbortSignal): Promise<string | undefined> {
+	const model = ctx.modelRegistry.find(TITLE_PROVIDER, TITLE_MODEL);
+	if (!model) return undefined;
+	const response = await ctx.modelRegistry.complete(
+		model,
+		{
+			systemPrompt:
+				"Generate a concise, specific title for a coding-assistant conversation from the user's opening request. Return only the title: 3-8 words, sentence case, no quotes, no markdown, no trailing punctuation, at most 60 characters. Prefer the task or outcome over generic phrases.",
+			messages: [
+				{
+					role: "user",
+					content: prompt.slice(0, TITLE_MAX_PROMPT_CHARS),
+					timestamp: Date.now(),
+				},
+			],
+		},
+		{ signal },
+	);
+	if (response.stopReason === "error" || response.stopReason === "aborted") return undefined;
+	const text = response.content
+		.filter((part) => part.type === "text")
+		.map((part) => part.text)
+		.join("\n");
+	return normalizeGeneratedSessionName(text);
 }
 
 async function readJson(path: string): Promise<JsonObject> {
@@ -194,6 +244,8 @@ function checkIcon(level: CheckLevel): string {
 
 export default function poCore(pi: ExtensionAPI) {
 	let canAutoName = false;
+	let titleController: AbortController | undefined;
+	let sessionGeneration = 0;
 	let taskStartedAt: number | undefined;
 	let taskHadToolError = false;
 
@@ -380,6 +432,9 @@ export default function poCore(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
+		titleController?.abort();
+		titleController = undefined;
+		sessionGeneration++;
 		await readPreferences();
 		canAutoName = !pi.getSessionName() && !ctx.sessionManager.getBranch().some(
 			(entry) => entry.type === "message" && entry.message.role === "user",
@@ -388,10 +443,33 @@ export default function poCore(pi: ExtensionAPI) {
 		taskHadToolError = false;
 	});
 
-	pi.on("before_agent_start", async (event) => {
+	pi.on("before_agent_start", async (event, ctx) => {
 		if (canAutoName && !pi.getSessionName()) {
-			const name = deriveSessionName(event.prompt);
-			if (name) pi.setSessionName(name);
+			const fallbackName = deriveSessionName(event.prompt);
+			if (fallbackName) {
+				pi.setSessionName(fallbackName);
+				const controller = new AbortController();
+				const generation = sessionGeneration;
+				titleController?.abort();
+				titleController = controller;
+				void generateSessionName(event.prompt, ctx, controller.signal)
+					.then((generatedName) => {
+						if (
+							generatedName &&
+							!controller.signal.aborted &&
+							generation === sessionGeneration &&
+							pi.getSessionName() === fallbackName
+						) {
+							pi.setSessionName(generatedName);
+						}
+					})
+					.catch(() => {
+						// The deterministic fallback remains when title generation is unavailable.
+					})
+					.finally(() => {
+						if (titleController === controller) titleController = undefined;
+					});
+			}
 			canAutoName = false;
 		}
 
@@ -399,6 +477,12 @@ export default function poCore(pi: ExtensionAPI) {
 		return {
 			systemPrompt: `${event.systemPrompt}\n\n# Persistent Po preferences\n${preferences.map((preference) => `- ${preference}`).join("\n")}\nApply these preferences when relevant without mentioning this section. If the user explicitly asks to remember a new standing preference, use remember_preference.`,
 		};
+	});
+
+	pi.on("session_shutdown", () => {
+		sessionGeneration++;
+		titleController?.abort();
+		titleController = undefined;
 	});
 
 	pi.on("agent_start", () => {

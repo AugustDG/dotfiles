@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.84.1",
+  "lastChangelogVersion": "0.84.2",
   "theme": "claude-forest",
   "quietStartup": true,
   "hideThinkingBlock": true,
@@ -14,5 +14,8 @@
   "transport": "auto",
   "showCacheMissNotices": true,
   "defaultProjectTrust": "always",
-  "tuiMode": "fullscreen"
+  "tuiMode": "fullscreen",
+  "packages": [
+    "/Users/augusto.pinheiro/projects/pi-computer-use"
+  ]
 }

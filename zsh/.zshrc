@@ -31,14 +31,6 @@ setopt HIST_IGNORE_SPACE      # prefix with space to keep a command out of histo
 export EDITOR=nvim
 
 # Aliases
-gcp() {
-  if [[ -z "$1" ]]; then
-    echo "usage: gcp <branch>"
-    return 1
-  fi
-  git checkout "$1" && git pull
-}
-
 alias cd='z'
 alias th='treehouse'
 alias no='no-mistakes'
@@ -46,8 +38,12 @@ alias gp='git pull'
 alias gs='git status'
 alias cdr='cd "$(git rev-parse --show-toplevel)"'
 alias codex='codex --dangerously-bypass-approvals-and-sandbox'
-alias claude='claude --model "claude-opus-4-6[1m]" --effort xhigh'
+alias claude='_ZO_DOCTOR=0 claude --model "claude-opus-5[1m]" --effort xhigh'
 alias po='env PATH="$NVM_DIR/versions/node/v22.22.0/bin:$PATH" pi'
+
+gpm() {
+  (git checkout master || git checkout main) && git pull
+}
 
 cdw() {
   if [[ -z "$1" ]]; then
