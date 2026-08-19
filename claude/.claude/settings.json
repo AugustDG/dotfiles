@@ -1,6 +1,7 @@
 {
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "ENABLE_TOOL_SEARCH": "true"
   },
   "permissions": {
     "allow": [],
@@ -32,5 +33,58 @@
   "verbose": true,
   "remoteControlAtStartup": true,
   "agentPushNotifEnabled": false,
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "mcpServers": {
+    "repowise": {
+      "command": "/Users/augusto.pinheiro/.local/share/pipx/venvs/repowise/bin/repowise",
+      "args": [
+        "mcp",
+        "/Users/augusto.pinheiro/.treehouse/genisys-6521e7/2/genisys",
+        "--transport",
+        "stdio"
+      ],
+      "description": "repowise: codebase intelligence \u2014 docs, graph, git signals, dead code, decisions"
+    }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Grep|Glob|Read|Edit|Write|mcp__.*[Rr]epowise.*__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v repowise-augment >/dev/null 2>&1; then exec repowise-augment; fi",
+            "timeout": 10,
+            "statusMessage": "Checking codebase context..."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v repowise-augment >/dev/null 2>&1; then exec repowise-augment; fi",
+            "timeout": 10,
+            "statusMessage": "Loading repowise context..."
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Read|Edit|Write|Grep|Glob|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v repowise-augment >/dev/null 2>&1; then exec repowise-augment; fi",
+            "timeout": 10,
+            "statusMessage": "Checking codebase context..."
+          }
+        ]
+      }
+    ]
+  }
 }
