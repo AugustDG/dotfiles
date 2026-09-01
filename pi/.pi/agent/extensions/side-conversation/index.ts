@@ -9,6 +9,7 @@ import {
 	type UserMessage,
 } from "@earendil-works/pi-ai";
 import {
+	copyToClipboard,
 	createCodingTools,
 	createReadTool,
 	CustomEditor,
@@ -19,9 +20,13 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import {
 	CURSOR_MARKER,
+	HStack,
 	Input,
 	isFocusable,
+	isViewportTUI,
 	matchesKey,
+	sliceByColumn,
+	stripTerminalSequences,
 	truncateToWidth,
 	visibleWidth,
 	wrapTextWithAnsi,
@@ -44,6 +49,10 @@ const SHORTCUT = "ctrl+shift+s";
 const FAKE_CURSOR = /\x1b\[7m([^\x1b]*)\x1b\[(?:0|27)m/g;
 const TERMINAL_FOCUS_EVENT = "po:terminal-focus";
 const IMAGE_PATH = /\.(?:png|jpe?g|gif|webp|bmp)$/i;
+const LAYOUT_NODE = Symbol.for("@earendil-works/pi-tui/layout-node");
+const SIDE_WIDTH_RATIO = 0.42;
+const MIN_SIDE_WIDTH = 46;
+const MIN_MAIN_WIDTH = 34;
 
 function hideFakeCursor(line: string): string {
 	return line.replace(FAKE_CURSOR, "$1");
@@ -71,9 +80,8 @@ interface SideState {
 }
 
 interface ActivePanel {
-	id: symbol;
 	panel: SideConversationPanel;
-	close: () => void;
+	restore: () => void;
 }
 
 interface WheelEvent {
@@ -82,8 +90,67 @@ interface WheelEvent {
 	y: number;
 }
 
+interface MouseEvent {
+	button: number;
+	x: number;
+	y: number;
+	release: boolean;
+}
+
+interface SelectionPoint {
+	row: number;
+	col: number;
+}
+
 interface WheelRoutableTui extends TUI {
 	routeWheel?: (event: WheelEvent) => void;
+}
+
+interface LayoutRootTui extends TUI {
+	layoutRoot?: Component;
+	getFocusedComponent?: () => Component | null;
+	setLayoutRoot(component: Component | undefined): void;
+}
+
+interface SelectionRoutableTui extends TUI {
+	handleSelectionMouseEvent?: (event: MouseEvent) => void;
+	selectionPressActive?: boolean;
+	selectionAnchor?: unknown;
+	selectionFocus?: unknown;
+	selectionGranularity?: string;
+	selectionInitialRange?: unknown;
+	selectionDragged?: boolean;
+	pressedUrl?: string;
+	lastClick?: unknown;
+	stopSelectionAutoScroll?: () => void;
+}
+
+function parseWheelEvent(data: string): WheelEvent | undefined {
+	const sgr = /^\x1b\[<(\d+);(\d+);(\d+)[Mm]$/.exec(data);
+	if (sgr) {
+		const button = Number.parseInt(sgr[1], 10);
+		if ((button & 64) === 0) return undefined;
+		const direction = button & 3;
+		if (direction !== 0 && direction !== 1) return undefined;
+		return {
+			direction: direction === 0 ? -1 : 1,
+			x: Number.parseInt(sgr[2], 10) - 1,
+			y: Number.parseInt(sgr[3], 10) - 1,
+		};
+	}
+
+	if (data.length === 6 && data.startsWith("\x1b[M")) {
+		const button = data.charCodeAt(3) - 32;
+		if ((button & 64) === 0) return undefined;
+		const direction = button & 3;
+		if (direction !== 0 && direction !== 1) return undefined;
+		return {
+			direction: direction === 0 ? -1 : 1,
+			x: data.charCodeAt(4) - 33,
+			y: data.charCodeAt(5) - 33,
+		};
+	}
+	return undefined;
 }
 
 function emptyState(): SideState {
@@ -452,6 +519,44 @@ class SidebarBoundaryEditor implements EditorComponent, Focusable {
 	}
 }
 
+class SideBySideLayout extends HStack {
+	constructor(
+		private readonly tui: TUI,
+		private readonly main: Component,
+		private readonly side: Component,
+	) {
+		super([
+			{ component: main, basis: 0, grow: 1, shrink: 1, minSize: 1 },
+			{ component: side, basis: MIN_SIDE_WIDTH, grow: 0, shrink: 0, minSize: 1 },
+		]);
+	}
+
+	private updateWidths(width: number): void {
+		const safeWidth = Math.max(1, Math.floor(width));
+		const preferred = Math.floor(safeWidth * SIDE_WIDTH_RATIO);
+		const maxSideWidth = Math.max(1, safeWidth - Math.min(MIN_MAIN_WIDTH, Math.max(1, safeWidth - 1)));
+		const sideWidth = Math.min(maxSideWidth, Math.max(Math.min(MIN_SIDE_WIDTH, maxSideWidth), preferred));
+		this.entries[0]!.basis = 0;
+		this.entries[0]!.grow = 1;
+		this.entries[1]!.basis = sideWidth;
+	}
+
+	[LAYOUT_NODE]() {
+		this.updateWidths(this.tui.terminal.columns);
+		return { type: "hstack" as const, entries: this.entries, gap: 0, align: "stretch" as const };
+	}
+
+	override render(width: number): string[] {
+		this.updateWidths(width);
+		return super.render(width);
+	}
+
+	override invalidate(): void {
+		this.main.invalidate();
+		this.side.invalidate();
+	}
+}
+
 class SideConversationPanel implements Component, Focusable {
 	private readonly input = new Input();
 	private readonly abortController = { current: undefined as AbortController | undefined };
@@ -459,13 +564,17 @@ class SideConversationPanel implements Component, Focusable {
 	private readonly pendingImagePaths: string[] = [];
 	private clearOnSettle = false;
 	private _focused = false;
-	private handle?: OverlayHandle;
 	private status = "";
 	private scrollTop?: number;
 	private transcriptLineCount = 0;
 	private transcriptHeight = 1;
 	private panelWidth = 0;
+	private selectionAnchor?: SelectionPoint;
+	private selectionFocus?: SelectionPoint;
+	private selectionPressActive = false;
+	private selectionSourceLines: string[] = [];
 	private restoreWheelRoute?: () => void;
+	private restoreSelectionRoute?: () => void;
 	private disposed = false;
 
 	constructor(
@@ -477,10 +586,12 @@ class SideConversationPanel implements Component, Focusable {
 		private readonly hasTerminalFocus: () => boolean,
 		private readonly requestClipboardPaste: () => void,
 		private readonly persist: () => void,
+		private readonly focusMain: () => void,
 		private readonly onClose: () => void,
 	) {
 		this.input.onSubmit = (value) => void this.submit(value);
 		this.installWheelRoute();
+		this.installSelectionRoute();
 	}
 
 	get focused(): boolean {
@@ -492,23 +603,18 @@ class SideConversationPanel implements Component, Focusable {
 		this.input.focused = value;
 	}
 
-	setHandle(handle: OverlayHandle): void {
-		this.handle = handle;
-	}
-
 	requestRender(): void {
 		if (!this.disposed) this.tui.requestRender();
 	}
 
 	focus(): void {
-		this.handle?.focus();
+		this.tui.setFocus(this);
 		this.requestRender();
 	}
 
 	toggleFocus(): void {
-		if (!this.handle) return;
-		if (this.handle.isFocused()) this.handle.unfocus();
-		else this.handle.focus();
+		if (this.focused) this.focusMain();
+		else this.tui.setFocus(this);
 		this.requestRender();
 	}
 
@@ -768,16 +874,158 @@ class SideConversationPanel implements Component, Focusable {
 		this.requestRender();
 	}
 
+	private isInsidePanel(event: { x: number; y: number }): boolean {
+		const panelLeft = Math.max(0, this.tui.terminal.columns - this.panelWidth);
+		return this.panelWidth > 0 && event.x >= panelLeft && event.y >= 0 && event.y < this.tui.terminal.rows;
+	}
+
+	private clearViewportSelection(): void {
+		const tui = this.tui as SelectionRoutableTui;
+		tui.stopSelectionAutoScroll?.();
+		tui.selectionPressActive = false;
+		tui.selectionAnchor = undefined;
+		tui.selectionFocus = undefined;
+		tui.selectionGranularity = "character";
+		tui.selectionInitialRange = undefined;
+		tui.selectionDragged = false;
+		tui.pressedUrl = undefined;
+		tui.lastClick = undefined;
+	}
+
+	private clearSideSelection(): void {
+		this.selectionPressActive = false;
+		this.selectionAnchor = undefined;
+		this.selectionFocus = undefined;
+	}
+
+	private selectionPoint(event: MouseEvent): SelectionPoint {
+		const panelLeft = Math.max(0, this.tui.terminal.columns - this.panelWidth);
+		return {
+			row: Math.max(0, Math.min(this.tui.terminal.rows - 1, event.y)),
+			col: Math.max(1, Math.min(Math.max(1, this.panelWidth - 2), event.x - panelLeft)),
+		};
+	}
+
+	private selectionBounds(): { start: SelectionPoint; end: SelectionPoint } | undefined {
+		const anchor = this.selectionAnchor;
+		const focus = this.selectionFocus;
+		if (!anchor || !focus || (anchor.row === focus.row && anchor.col === focus.col)) return undefined;
+		const anchorBeforeFocus = anchor.row < focus.row || (anchor.row === focus.row && anchor.col < focus.col);
+		return anchorBeforeFocus ? { start: anchor, end: focus } : { start: focus, end: anchor };
+	}
+
+	private selectionColumns(
+		row: number,
+		selection: { start: SelectionPoint; end: SelectionPoint },
+	): { start: number; end: number } {
+		const contentStart = 1;
+		const contentEnd = Math.max(contentStart, this.panelWidth - 1);
+		const start = row === selection.start.row ? selection.start.col : contentStart;
+		const end = row === selection.end.row ? selection.end.col + 1 : contentEnd;
+		return {
+			start: Math.max(contentStart, Math.min(contentEnd, start)),
+			end: Math.max(contentStart, Math.min(contentEnd, end)),
+		};
+	}
+
+	private applySelectionHighlight(text: string): string {
+		let result = "\x1b[7m";
+		let index = 0;
+		while (index < text.length) {
+			const ansi = /^\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/.exec(text.slice(index));
+			if (!ansi) {
+				result += text[index];
+				index++;
+				continue;
+			}
+			result += ansi[0];
+			if (ansi[0].endsWith("m")) result += "\x1b[7m";
+			index += ansi[0].length;
+		}
+		return `${result}\x1b[27m`;
+	}
+
+	private applySideSelection(lines: string[]): string[] {
+		const selection = this.selectionBounds();
+		if (!selection) return lines;
+		return lines.map((line, row) => {
+			if (row < selection.start.row || row > selection.end.row) return line;
+			const { start, end } = this.selectionColumns(row, selection);
+			if (end <= start) return line;
+			const lineWidth = visibleWidth(line);
+			const before = sliceByColumn(line, 0, start, true);
+			const selected = sliceByColumn(line, start, Math.max(0, end - start), true);
+			const after = sliceByColumn(line, end, Math.max(0, lineWidth - end), true);
+			return `${before}${this.applySelectionHighlight(selected)}${after}`;
+		});
+	}
+
+	private async copySideSelection(): Promise<void> {
+		const selection = this.selectionBounds();
+		if (!selection) return;
+		const lines: string[] = [];
+		for (let row = selection.start.row; row <= selection.end.row; row++) {
+			const line = this.selectionSourceLines[row] ?? "";
+			const { start, end } = this.selectionColumns(row, selection);
+			lines.push(stripTerminalSequences(sliceByColumn(line, start, Math.max(0, end - start), true)).trimEnd());
+		}
+		const text = lines.join("\n");
+		if (!text) return;
+		try {
+			await copyToClipboard(text);
+		} catch (error) {
+			this.status = `Copy failed: ${errorMessage(error)}`;
+			this.requestRender();
+		}
+	}
+
+	private handleSideSelectionMouseEvent(event: MouseEvent): boolean {
+		const button = event.button & 3;
+		if (event.release) {
+			if (!this.selectionPressActive || (button !== 0 && button !== 3)) return false;
+			this.selectionPressActive = false;
+			this.selectionFocus = this.selectionPoint(event);
+			void this.copySideSelection();
+			this.requestRender();
+			return true;
+		}
+		if ((event.button & 32) !== 0) {
+			if (!this.selectionPressActive) return false;
+			this.selectionFocus = this.selectionPoint(event);
+			this.requestRender();
+			return true;
+		}
+		if (button !== 0 || !this.isInsidePanel(event)) return false;
+		this.clearViewportSelection();
+		this.selectionPressActive = true;
+		this.selectionAnchor = this.selectionPoint(event);
+		this.selectionFocus = this.selectionAnchor;
+		this.requestRender();
+		return true;
+	}
+
+	private installSelectionRoute(): void {
+		const tui = this.tui as SelectionRoutableTui;
+		const previous = tui.handleSelectionMouseEvent;
+		if (typeof previous !== "function") return;
+		const routeSelection = (event: MouseEvent) => {
+			if (this.handleSideSelectionMouseEvent(event)) return;
+			if (!event.release && (event.button & 32) === 0 && (event.button & 3) === 0) this.clearSideSelection();
+			previous.call(this.tui, event);
+		};
+		tui.handleSelectionMouseEvent = routeSelection;
+		this.restoreSelectionRoute = () => {
+			if (tui.handleSelectionMouseEvent === routeSelection) tui.handleSelectionMouseEvent = previous;
+		};
+	}
+
 	private installWheelRoute(): void {
 		const tui = this.tui as WheelRoutableTui;
 		const previous = tui.routeWheel;
 		if (typeof previous !== "function") return;
 
 		const routeWheel = (event: WheelEvent) => {
-			const panelLeft = Math.max(0, this.tui.terminal.columns - this.panelWidth);
-			const insidePanel =
-				this.panelWidth > 0 && event.x >= panelLeft && event.y >= 0 && event.y < this.tui.terminal.rows;
-			if (insidePanel) {
+			if (this.isInsidePanel(event)) {
 				this.scrollBy(event.direction * 3);
 				return;
 			}
@@ -790,6 +1038,21 @@ class SideConversationPanel implements Component, Focusable {
 	}
 
 	handleInput(data: string): void {
+		const wheelEvent = parseWheelEvent(data);
+		if (wheelEvent) {
+			this.clearSideSelection();
+			if (this.isInsidePanel(wheelEvent)) this.scrollBy(wheelEvent.direction * 3);
+			else (this.tui as WheelRoutableTui).routeWheel?.(wheelEvent);
+			return;
+		}
+		if (this.keybindings.matches(data, "tui.altScreen.pageUp")) {
+			this.scrollBy(-Math.max(1, this.transcriptHeight - 2));
+			return;
+		}
+		if (this.keybindings.matches(data, "tui.altScreen.pageDown")) {
+			this.scrollBy(Math.max(1, this.transcriptHeight - 2));
+			return;
+		}
 		if (this.keybindings.matches(data, "app.clipboard.pasteImage")) {
 			this.requestClipboardPaste();
 			return;
@@ -805,7 +1068,7 @@ class SideConversationPanel implements Component, Focusable {
 			return;
 		}
 		if (matchesKey(data, "left") && this.inputIsAtStart()) {
-			this.handle?.unfocus();
+			this.focusMain();
 			this.requestRender();
 			return;
 		}
@@ -864,11 +1127,11 @@ class SideConversationPanel implements Component, Focusable {
 
 	render(width: number): string[] {
 		this.panelWidth = width;
-		const innerWidth = Math.max(10, width - 2);
+		const innerWidth = Math.max(1, width - 2);
 		const border = (value: string) => this.theme.fg(this.focused ? "borderAccent" : "border", value);
 		const state = this.getState();
 		const mode = state.shared ? this.theme.fg("success", "MAIN CONTEXT") : this.theme.fg("muted", "ISOLATED");
-		const title = ` Side conversation · ${mode} `;
+		const title = truncateToWidth(` Side conversation · ${mode} `, innerWidth, "…", true);
 		const titleWidth = visibleWidth(title);
 		const topFill = Math.max(0, innerWidth - titleWidth);
 		const lines: string[] = [border("╭") + title + border(`${"─".repeat(topFill)}╮`)];
@@ -933,7 +1196,8 @@ class SideConversationPanel implements Component, Focusable {
 				border("│"),
 		);
 		lines.push(border(`╰${"─".repeat(innerWidth)}╯`));
-		return lines;
+		this.selectionSourceLines = [...lines];
+		return this.applySideSelection(lines);
 	}
 
 	invalidate(): void {
@@ -945,6 +1209,8 @@ class SideConversationPanel implements Component, Focusable {
 		this.disposed = true;
 		this.restoreWheelRoute?.();
 		this.restoreWheelRoute = undefined;
+		this.restoreSelectionRoute?.();
+		this.restoreSelectionRoute = undefined;
 		this.abortController.current?.abort();
 		this.abortController.current = undefined;
 	}
@@ -955,6 +1221,10 @@ export default function sideConversationExtension(pi: ExtensionAPI) {
 	let active: ActivePanel | undefined;
 	let restoreEditor: (() => void) | undefined;
 	let boundaryEditor: SidebarBoundaryEditor | undefined;
+	let boundaryEditorFactory:
+		| NonNullable<Parameters<ExtensionContext["ui"]["setEditorComponent"]>[0]>
+		| undefined;
+	let editorResources: { tui: TUI; keybindings: KeybindingsManager } | undefined;
 	let editorInstalled = false;
 	let terminalFocused = true;
 
@@ -973,16 +1243,26 @@ export default function sideConversationExtension(pi: ExtensionAPI) {
 	};
 
 	const closePanel = () => {
-		const panel = active;
-		if (!panel) return;
-		panel.panel.dispose();
-		panel.close();
+		const current = active;
+		if (!current) return;
+		active = undefined;
+		current.panel.dispose();
+		current.restore();
 	};
 
 	const installBoundaryEditor = (ctx: ExtensionContext) => {
-		if (editorInstalled || ctx.mode !== "tui") return;
+		if (ctx.mode !== "tui") return;
+		if (editorInstalled) {
+			// Renderer mode changes reuse the editor component but replace the TUI. Recreate our wrapper
+			// to refresh the captured fullscreen renderer before mounting the split layout.
+			if (boundaryEditorFactory && ctx.ui.getEditorComponent() === boundaryEditorFactory) {
+				ctx.ui.setEditorComponent(boundaryEditorFactory);
+			}
+			return;
+		}
 		const previousEditor = ctx.ui.getEditorComponent();
-		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
+		boundaryEditorFactory = (tui, theme, keybindings) => {
+			editorResources = { tui, keybindings };
 			const base = previousEditor?.(tui, theme, keybindings) ?? new CustomEditor(tui, theme, keybindings);
 			boundaryEditor = new SidebarBoundaryEditor(
 				base,
@@ -998,7 +1278,8 @@ export default function sideConversationExtension(pi: ExtensionAPI) {
 				},
 			);
 			return boundaryEditor;
-		});
+		};
+		ctx.ui.setEditorComponent(boundaryEditorFactory);
 		restoreEditor = () => ctx.ui.setEditorComponent(previousEditor);
 		editorInstalled = true;
 	};
@@ -1013,50 +1294,52 @@ export default function sideConversationExtension(pi: ExtensionAPI) {
 			return;
 		}
 		installBoundaryEditor(ctx);
-
-		const id = Symbol("side-panel");
-		let doneOverlay: (() => void) | undefined;
-		let panel: SideConversationPanel | undefined;
-		const promise = ctx.ui.custom<void>(
-			(tui, theme, keybindings, done) => {
-				doneOverlay = () => done();
-				panel = new SideConversationPanel(
-					tui,
-					theme,
-					keybindings,
-					ctx,
-					() => state,
-					() => terminalFocused,
-					() => boundaryEditor?.onPasteImage?.(),
-					persist,
-					() => done(),
-				);
-				return panel;
-			},
-			{
-				overlay: true,
-				overlayOptions: {
-					anchor: "top-right",
-					width: "42%",
-					minWidth: 46,
-					maxHeight: "100%",
-					margin: 0,
-				},
-				onHandle: (handle) => panel?.setHandle(handle),
-			},
-		);
-
-		if (!panel || !doneOverlay) {
-			ctx.ui.notify("Could not open side conversation", "error");
+		const resources = editorResources;
+		if (!resources || !isViewportTUI(resources.tui)) {
+			ctx.ui.notify("Side-by-side conversation requires fullscreen TUI mode", "error");
 			return;
 		}
-		active = { id, panel, close: doneOverlay };
-		void promise
-			.catch((error) => ctx.ui.notify(`Side conversation failed: ${errorMessage(error)}`, "error"))
-			.finally(() => {
-				panel?.dispose();
-				if (active?.id === id) active = undefined;
-			});
+
+		const tui = resources.tui as LayoutRootTui;
+		const mainRoot = tui.layoutRoot;
+		if (!mainRoot) {
+			ctx.ui.notify("Could not access the fullscreen layout", "error");
+			return;
+		}
+		const mainFocus = tui.getFocusedComponent?.() ?? boundaryEditor ?? null;
+		const focusMain = () => {
+			tui.setFocus(mainFocus);
+			tui.requestRender();
+		};
+		const panel = new SideConversationPanel(
+			tui,
+			ctx.ui.theme,
+			resources.keybindings,
+			ctx,
+			() => state,
+			() => terminalFocused,
+			() => boundaryEditor?.onPasteImage?.(),
+			persist,
+			focusMain,
+			closePanel,
+		);
+		const splitRoot = new SideBySideLayout(tui, mainRoot, panel);
+		// Keep Pi from changing renderer modes while this layout owns the fullscreen root.
+		const modeGuard: OverlayHandle = tui.showOverlay(
+			{ render: () => [], invalidate: () => {} },
+			{ nonCapturing: true, visible: () => false },
+		);
+		active = {
+			panel,
+			restore: () => {
+				modeGuard.hide();
+				if (tui.layoutRoot === splitRoot) tui.setLayoutRoot(mainRoot);
+				if (tui.getFocusedComponent?.() === panel) focusMain();
+				resources.tui.requestRender();
+			},
+		};
+		tui.setLayoutRoot(splitRoot);
+		panel.focus();
 	};
 
 	pi.on("session_start", (_event, ctx) => {
@@ -1069,6 +1352,8 @@ export default function sideConversationExtension(pi: ExtensionAPI) {
 		restoreEditor?.();
 		restoreEditor = undefined;
 		boundaryEditor = undefined;
+		boundaryEditorFactory = undefined;
+		editorResources = undefined;
 		editorInstalled = false;
 	});
 

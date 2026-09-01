@@ -38,3 +38,5 @@ fi
 # >>> Codex installer >>>
 export PATH="/Users/augusto.pinheiro/.local/bin:$PATH"
 # <<< Codex installer <<<
+
+eval "$(/opt/homebrew/bin/brew shellenv)"

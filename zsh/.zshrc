@@ -162,9 +162,7 @@ use() {
   esac
 }
 
-
-. "$HOME/.atuin/bin/env"
-
+# atuin
 eval "$(atuin init zsh)"
 
 # zoxide — smarter cd (provides `z` and `zi`)

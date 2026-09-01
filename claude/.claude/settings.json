@@ -39,7 +39,7 @@
       "command": "/Users/augusto.pinheiro/.local/share/pipx/venvs/repowise/bin/repowise",
       "args": [
         "mcp",
-        "/Users/augusto.pinheiro/.treehouse/genisys-6521e7/2/genisys",
+        "/Users/augusto.pinheiro/projects/vdk",
         "--transport",
         "stdio"
       ],
