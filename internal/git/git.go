@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/AugustDG/dotfiles/internal/runner"
@@ -84,12 +85,14 @@ func SubmoduleStatus(dotfilesDir, path string) (string, error) {
 
 	if _, err := os.Stat(fullPath + "/.git"); os.IsNotExist(err) {
 		return "not-init", nil
+	} else if err != nil {
+		return "", err
 	}
 
 	cmd := exec.Command("git", "-C", fullPath, "status", "--porcelain")
 	out, err := cmd.Output()
 	if err != nil {
-		return "not-init", nil
+		return "", fmt.Errorf("git status %s: %w", path, err)
 	}
 
 	if len(strings.TrimSpace(string(out))) == 0 {
@@ -150,26 +153,173 @@ func atoi(s string) int {
 // Submodules returns the relative paths of submodules declared in the
 // .gitmodules file of the repo at path.
 func Submodules(path string) []string {
-	cmd := exec.Command("git", "-C", path, "config",
-		"--file", ".gitmodules", "--get-regexp", `submodule\..*\.path`)
-	out, err := cmd.Output()
+	pairs, err := submoduleConfigPairs(path)
 	if err != nil {
 		return nil
 	}
-
-	var paths []string
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		parts := strings.SplitN(line, " ", 2)
-		if len(parts) == 2 {
-			paths = append(paths, parts[1])
-		}
+	paths := make([]string, 0, len(pairs))
+	for _, pair := range pairs {
+		paths = append(paths, pair.value)
 	}
 	return paths
+}
+
+type configPair struct {
+	key   string
+	value string
+}
+
+// submoduleConfigPairs uses NUL-delimited output because both valid section
+// names and submodule paths may contain spaces.
+func submoduleConfigPairs(repo string) ([]configPair, error) {
+	cmd := exec.Command("git", "-C", repo, "config", "--file", ".gitmodules", "-z", "--get-regexp", `^submodule\..*\.path$`)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	var pairs []configPair
+	for _, record := range bytes.Split(out, []byte{0}) {
+		key, value, ok := bytes.Cut(record, []byte{'\n'})
+		if ok {
+			pairs = append(pairs, configPair{key: string(key), value: string(value)})
+		}
+	}
+	return pairs, nil
 }
 
 func IsDirty(path string) bool {
 	out, err := exec.Command("git", "-C", path, "status", "--porcelain").Output()
 	return err == nil && len(strings.TrimSpace(string(out))) > 0
+}
+
+// PathHasChanges reports whether a repo-relative path has staged, unstaged, or
+// untracked changes. For submodules this includes a changed gitlink or dirty
+// nested working tree.
+func PathHasChanges(repo, path string) bool {
+	out, err := exec.Command("git", "-C", repo, "status", "--porcelain", "--", path).Output()
+	return err != nil || len(strings.TrimSpace(string(out))) > 0
+}
+
+// SubmoduleRemoval records enough superproject state to restore submodule
+// registrations and index gitlinks if removing the containing module fails.
+// The cached repositories under .git/modules are intentionally retained.
+type SubmoduleRemoval struct {
+	Paths          []string
+	Sections       []string
+	Gitlinks       map[string]string
+	Gitmodules     []byte
+	GitmodulesMode os.FileMode
+}
+
+// ValidateSubmoduleRegistrations verifies that every path has both an
+// authoritative .gitmodules section and a mode-160000 gitlink in the index.
+func ValidateSubmoduleRegistrations(repo string, paths []string) error {
+	_, err := submoduleRemovalMetadata(repo, paths)
+	return err
+}
+
+// PrepareSubmoduleRemoval deinitializes the requested submodules, removes their
+// .gitmodules sections, and stages removal of their gitlinks. This keeps the
+// superproject index coherent while the containing module directory is absent.
+func PrepareSubmoduleRemoval(repo string, paths []string) (*SubmoduleRemoval, error) {
+	snapshot, err := submoduleRemovalMetadata(repo, paths)
+	if err != nil {
+		return nil, err
+	}
+
+	args := append([]string{"-C", repo, "submodule", "deinit", "-f", "--"}, paths...)
+	if err := runGit(args...); err != nil {
+		return nil, fmt.Errorf("deinitialize submodules: %w", err)
+	}
+
+	fail := func(cause error) (*SubmoduleRemoval, error) {
+		if restoreErr := snapshot.Restore(repo); restoreErr != nil {
+			return nil, fmt.Errorf("%w (also failed to restore submodules: %v)", cause, restoreErr)
+		}
+		return nil, cause
+	}
+	for _, section := range snapshot.Sections {
+		if err := runGit("-C", repo, "config", "--file", ".gitmodules", "--remove-section", section); err != nil {
+			return fail(fmt.Errorf("remove %s from .gitmodules: %w", section, err))
+		}
+	}
+	for _, path := range snapshot.Paths {
+		if err := runGit("-C", repo, "update-index", "--force-remove", "--", path); err != nil {
+			return fail(fmt.Errorf("remove gitlink %s: %w", path, err))
+		}
+	}
+	return snapshot, nil
+}
+
+// Restore reverses PrepareSubmoduleRemoval and reinitializes the worktrees from
+// the retained repositories under .git/modules.
+func (s *SubmoduleRemoval) Restore(repo string) error {
+	gitmodulesPath := filepath.Join(repo, ".gitmodules")
+	if err := os.WriteFile(gitmodulesPath, s.Gitmodules, s.GitmodulesMode.Perm()); err != nil {
+		return err
+	}
+	if err := os.Chmod(gitmodulesPath, s.GitmodulesMode.Perm()); err != nil {
+		return err
+	}
+	for _, path := range s.Paths {
+		cacheInfo := fmt.Sprintf("160000,%s,%s", s.Gitlinks[path], path)
+		if err := runGit("-C", repo, "update-index", "--add", "--cacheinfo", cacheInfo); err != nil {
+			return err
+		}
+	}
+	args := append([]string{"-C", repo, "submodule", "update", "--init", "--recursive", "--"}, s.Paths...)
+	return runGit(args...)
+}
+
+func submoduleRemovalMetadata(repo string, paths []string) (*SubmoduleRemoval, error) {
+	gitmodulesPath := filepath.Join(repo, ".gitmodules")
+	contents, err := os.ReadFile(gitmodulesPath)
+	if err != nil {
+		return nil, err
+	}
+	info, err := os.Stat(gitmodulesPath)
+	if err != nil {
+		return nil, err
+	}
+
+	pairs, err := submoduleConfigPairs(repo)
+	if err != nil {
+		return nil, fmt.Errorf("read .gitmodules: %w", err)
+	}
+	sectionsByPath := make(map[string]string)
+	for _, pair := range pairs {
+		sectionsByPath[pair.value] = strings.TrimSuffix(pair.key, ".path")
+	}
+
+	snapshot := &SubmoduleRemoval{
+		Paths:          append([]string(nil), paths...),
+		Gitlinks:       make(map[string]string, len(paths)),
+		Gitmodules:     contents,
+		GitmodulesMode: info.Mode(),
+	}
+	seen := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		if seen[path] {
+			return nil, fmt.Errorf("duplicate submodule path: %s", path)
+		}
+		seen[path] = true
+		section, ok := sectionsByPath[path]
+		if !ok {
+			return nil, fmt.Errorf("no .gitmodules registration found for %s", path)
+		}
+		snapshot.Sections = append(snapshot.Sections, section)
+
+		indexOut, err := exec.Command("git", "-C", repo, "ls-files", "--stage", "--", path).Output()
+		if err != nil {
+			return nil, err
+		}
+		fields := strings.Fields(strings.TrimSpace(string(indexOut)))
+		if len(fields) < 3 || fields[0] != "160000" || fields[2] != "0" {
+			return nil, fmt.Errorf("no submodule gitlink found in index for %s", path)
+		}
+		snapshot.Gitlinks[path] = fields[1]
+	}
+	return snapshot, nil
 }
 
 // CurrentBranch returns the checked-out branch, or an error on detached HEAD.

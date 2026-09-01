@@ -1,3 +1,0 @@
-name = "opencode"
-description = "OpenCode AI editor config"
-os = ["darwin", "linux"]

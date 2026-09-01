@@ -1,3 +1,0 @@
-name = "claude"
-description = "Claude Code config and skills"
-os = ["darwin", "linux"]

@@ -40,7 +40,7 @@ func TestDepsEmpty(t *testing.T) {
 func TestParseGitmodules(t *testing.T) {
 	dir := t.TempDir()
 	content := `[submodule ".config/nvim"]
-	path = nvim/.config/nvim
+	path = "nvim/.config/nvim config" # quoted values, spaces, and comments are valid
 	url = git@github.com:x/nvim.git
 [submodule "claude/skills"]
 	path = claude/.claude/skills/greptile
@@ -51,7 +51,7 @@ func TestParseGitmodules(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := parseGitmodules(p)
-	want := []string{"nvim/.config/nvim", "claude/.claude/skills/greptile"}
+	want := []string{"nvim/.config/nvim config", "claude/.claude/skills/greptile"}
 	if len(got) != len(want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}

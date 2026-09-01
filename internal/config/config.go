@@ -1,8 +1,9 @@
 package config
 
 import (
-	"bufio"
+	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -115,27 +116,21 @@ func (m Module) SupportsOS(os string) bool {
 	return false
 }
 
-// parseGitmodules reads a .gitmodules file and returns all submodule paths.
+// parseGitmodules uses Git's config parser so quoted values, comments, and
+// other valid .gitmodules syntax are interpreted exactly as Git sees them.
 func parseGitmodules(path string) []string {
-	var paths []string
-
-	f, err := os.Open(path)
+	out, err := exec.Command("git", "config", "--file", path, "-z", "--get-regexp", `^submodule\..*\.path$`).Output()
 	if err != nil {
-		return paths
+		return nil
 	}
-	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "path") {
-			parts := strings.SplitN(line, "=", 2)
-			if len(parts) == 2 {
-				paths = append(paths, strings.TrimSpace(parts[1]))
-			}
+	var paths []string
+	for _, record := range bytes.Split(out, []byte{0}) {
+		_, value, ok := bytes.Cut(record, []byte{'\n'})
+		if ok {
+			paths = append(paths, string(value))
 		}
 	}
-
 	return paths
 }
 
