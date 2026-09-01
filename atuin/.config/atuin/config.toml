@@ -58,7 +58,7 @@ sync_address = "http://atuin.s.abu.lan"
 ## To use workspace mode by default when available, set this to true and
 ## set filter_mode to "workspace" or leave it unspecified and
 ## set search.filters to include "workspace" before other filter modes.
-# workspaces = false
+workspaces = true
 
 ## which filter mode to use when atuin is invoked from a shell up-key binding
 ## the accepted values are identical to those of "filter_mode"
@@ -310,7 +310,7 @@ autostart = true
 ## The list of enabled filter modes, in order of priority.
 ## The "workspace" mode is skipped when not in a workspace or workspaces = false.
 ## Default filter mode can be overridden with the filter_mode setting.
-# filters = [ "global", "host", "session", "session-preload", "workspace", "directory" ]
+filters = [ "workspace", "session-preload", "host", "session", "global" ] # + directory
 
 [tmux]
 ## Enable using atuin with tmux popup (requires tmux >= 3.2)

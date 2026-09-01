@@ -17,6 +17,7 @@ var (
 
 type ModuleStatus struct {
 	Module         config.Module
+	Dirty          bool   // tracked, staged, unstaged, or untracked changes in this module
 	SubmoduleState string // "clean", "dirty", "not-init", ""
 	DepsChecked    bool   // false when brew is unavailable
 	DepsMissing    []string
@@ -66,10 +67,10 @@ func RenderRepoSummary(s RepoSummary) string {
 func RenderStatusTable(statuses []ModuleStatus) string {
 	var b strings.Builder
 
-	b.WriteString(headerStyle.Render(fmt.Sprintf("  %-12s %-8s %-10s %-10s %s",
-		"Module", "Stowed", "Submodule", "Deps", "Description")))
+	b.WriteString(headerStyle.Render(fmt.Sprintf("  %-12s %-8s %-8s %-10s %-10s %s",
+		"Module", "Stowed", "Changes", "Submodule", "Deps", "Description")))
 	b.WriteString("\n")
-	b.WriteString(separatorStyle.Render("  " + strings.Repeat("─", 64)))
+	b.WriteString(separatorStyle.Render("  " + strings.Repeat("─", 73)))
 	b.WriteString("\n")
 
 	for _, s := range statuses {
@@ -80,9 +81,10 @@ func RenderStatusTable(statuses []ModuleStatus) string {
 			if len(s.Module.OS) > 0 {
 				desc += fmt.Sprintf(" (requires %s)", strings.Join(s.Module.OS, "/"))
 			}
-			b.WriteString(fmt.Sprintf("  %s %s %s %s %s\n",
+			b.WriteString(fmt.Sprintf("  %s %s %s %s %s %s\n",
 				padStyled(disabledStyle.Render(s.Module.Name), 12),
 				padStyled(naStyle.Render("n/a"), 8),
+				padStyled(changesCell(s), 8),
 				padStyled(naStyle.Render("—"), 10),
 				padStyled(naStyle.Render("—"), 10),
 				disabledStyle.Render(desc),
@@ -109,9 +111,10 @@ func RenderStatusTable(statuses []ModuleStatus) string {
 			}
 		}
 
-		b.WriteString(fmt.Sprintf("  %-12s %s %s %s %s\n",
+		b.WriteString(fmt.Sprintf("  %-12s %s %s %s %s %s\n",
 			s.Module.Name,
 			padStyled(stowed, 8),
+			padStyled(changesCell(s), 8),
 			padStyled(sub, 10),
 			padStyled(depsCell(s), 10),
 			descStyle.Render(s.Module.Description),
@@ -119,6 +122,16 @@ func RenderStatusTable(statuses []ModuleStatus) string {
 	}
 
 	return b.String()
+}
+
+func changesCell(s ModuleStatus) string {
+	if s.Dirty {
+		return failureStyle.Render("dirty")
+	}
+	if !s.Compatible {
+		return naStyle.Render("clean")
+	}
+	return yesStyle.Render("clean")
 }
 
 func depsCell(s ModuleStatus) string {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/AugustDG/dotfiles/internal/bootstrap"
 	"github.com/AugustDG/dotfiles/internal/brew"
@@ -21,9 +22,9 @@ func statusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show module status",
-		Long: "Prints the dotfiles repo state and a per-module table of stow, submodule,\n" +
-			"and dependency status. With --check, exits non-zero when the repo has\n" +
-			"uncommitted/unpushed changes or dangling links (useful in prompts/CI).",
+		Long: "Prints the dotfiles repo state and a per-module table of pending changes,\n" +
+			"stow, submodule, and dependency status. With --check, exits non-zero when\n" +
+			"there are uncommitted/unpushed changes or dangling links (useful in prompts/CI).",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runStatus(check)
@@ -82,6 +83,8 @@ func repoSummary(dotfilesDir string) (tui.RepoSummary, bool) {
 }
 
 func moduleStatuses(dotfilesDir string, modules []config.Module) []tui.ModuleStatus {
+	dirtyModules := changedModules(gitops.ChangedPaths(dotfilesDir))
+
 	var formulae, casks map[string]bool
 	depsChecked := brew.IsInstalled()
 	if depsChecked {
@@ -94,6 +97,7 @@ func moduleStatuses(dotfilesDir string, modules []config.Module) []tui.ModuleSta
 	for _, mod := range modules {
 		status := tui.ModuleStatus{
 			Module:      mod,
+			Dirty:       dirtyModules[mod.Name],
 			DepsChecked: depsChecked,
 			Compatible:  mod.SupportsOS(currentOS),
 		}
@@ -107,4 +111,19 @@ func moduleStatuses(dotfilesDir string, modules []config.Module) []tui.ModuleSta
 		statuses = append(statuses, status)
 	}
 	return statuses
+}
+
+// changedModules maps pending repo changes to their owning top-level Stow
+// module. Changes to repo-level files such as README.md or internal/ remain
+// represented by the repo summary without incorrectly marking a module dirty.
+func changedModules(paths []string) map[string]bool {
+	dirty := make(map[string]bool)
+	for _, path := range paths {
+		path = filepath.ToSlash(filepath.Clean(path))
+		name, _, _ := strings.Cut(path, "/")
+		if name != "." && name != "" {
+			dirty[name] = true
+		}
+	}
+	return dirty
 }
