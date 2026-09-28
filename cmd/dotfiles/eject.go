@@ -85,13 +85,17 @@ func runEject(names []string, keepFiles, withSubmodules bool) error {
 	}
 
 	for _, mod := range selected {
-		if err := ejectModule(dotfilesDir, homeDir, mod, keepFiles, withSubmodules); err != nil {
+		skipped, err := ejectModule(dotfilesDir, homeDir, mod, keepFiles, withSubmodules)
+		if err != nil {
 			return err
 		}
 		if keepFiles {
 			fmt.Printf("Ejected module %q; files kept in $HOME.\n", mod.Name)
 		} else {
 			fmt.Printf("Ejected module %q.\n", mod.Name)
+		}
+		for _, s := range skipped {
+			fmt.Printf("  skipped %s\n", s)
 		}
 	}
 	return nil
@@ -116,23 +120,26 @@ func validateSubmodulesForRemoval(dotfilesDir string, mod config.Module, keepFil
 	return nil
 }
 
-func ejectModule(dotfilesDir, homeDir string, mod config.Module, keepFiles, withSubmodules bool) error {
+// ejectModule unstows mod, optionally copies its files into homeDir, and
+// deletes it from the repo. It returns the links it skipped while copying.
+func ejectModule(dotfilesDir, homeDir string, mod config.Module, keepFiles, withSubmodules bool) ([]string, error) {
 	if err := stow.Unstow(dotfilesDir, mod.Name, homeDir); err != nil {
-		return fmt.Errorf("unstow %s: %w", mod.Name, err)
+		return nil, fmt.Errorf("unstow %s: %w", mod.Name, err)
 	}
 
-	var created []string
+	var copied materialized
 	if keepFiles {
 		var err error
-		created, err = materializeModule(mod.Path, homeDir)
+		copied, err = materializeModule(mod.Path, homeDir)
 		if err != nil {
-			removeCreatedPaths(created)
+			removeCreatedPaths(copied.created)
 			if restowErr := stow.Stow(dotfilesDir, mod.Name, homeDir); restowErr != nil {
-				return fmt.Errorf("keep files for %s: %w (also failed to restore stow links: %v)", mod.Name, err, restowErr)
+				return nil, fmt.Errorf("keep files for %s: %w (also failed to restore stow links: %v)", mod.Name, err, restowErr)
 			}
-			return fmt.Errorf("keep files for %s: %w (stow links restored)", mod.Name, err)
+			return nil, fmt.Errorf("keep files for %s: %w (stow links restored)", mod.Name, err)
 		}
 	}
+	created := copied.created
 
 	var submoduleRemoval *gitops.SubmoduleRemoval
 	if mod.HasSubmodule && withSubmodules {
@@ -141,7 +148,7 @@ func ejectModule(dotfilesDir, homeDir string, mod config.Module, keepFiles, with
 		if err != nil {
 			removeCreatedPaths(created)
 			_ = stow.Stow(dotfilesDir, mod.Name, homeDir)
-			return fmt.Errorf("unregister submodules for %s: %w", mod.Name, err)
+			return nil, fmt.Errorf("unregister submodules for %s: %w", mod.Name, err)
 		}
 	}
 
@@ -153,11 +160,11 @@ func ejectModule(dotfilesDir, homeDir string, mod config.Module, keepFiles, with
 		removeCreatedPaths(created)
 		restowErr := stow.Stow(dotfilesDir, mod.Name, homeDir)
 		if restoreErr != nil || restowErr != nil {
-			return fmt.Errorf("eject %s: %w (restore submodules: %v; restore stow links: %v)", mod.Name, err, restoreErr, restowErr)
+			return nil, fmt.Errorf("eject %s: %w (restore submodules: %v; restore stow links: %v)", mod.Name, err, restoreErr, restowErr)
 		}
-		return fmt.Errorf("eject %s: %w (submodules and stow links restored)", mod.Name, err)
+		return nil, fmt.Errorf("eject %s: %w (submodules and stow links restored)", mod.Name, err)
 	}
-	return nil
+	return copied.skipped, nil
 }
 
 // preflightMaterialize verifies that preserving a module will not overwrite
@@ -258,16 +265,22 @@ func hasSymlinkComponent(path, root string) bool {
 	return false
 }
 
+// materialized is what copying a module into $HOME produced.
+type materialized struct {
+	created []string // every new path, so a partial copy can be rolled back
+	skipped []string // links left out because their target doesn't exist
+}
+
 // materializeModule copies a module's managed contents into homeDir, excluding
-// module.toml. It returns every newly-created path so the caller can roll back
-// a partial copy without touching files that were already present.
-func materializeModule(moduleDir, homeDir string) ([]string, error) {
+// module.toml. Paths that already existed are never touched, and only the
+// ones it created are listed for rollback.
+func materializeModule(moduleDir, homeDir string) (materialized, error) {
+	var res materialized
 	entries, err := os.ReadDir(moduleDir)
 	if err != nil {
-		return nil, err
+		return res, err
 	}
 
-	var created []string
 	for _, entry := range entries {
 		if entry.Name() == "module.toml" || entry.Name() == ".git" {
 			continue
@@ -277,15 +290,15 @@ func materializeModule(moduleDir, homeDir string) ([]string, error) {
 			filepath.Join(homeDir, entry.Name()),
 			moduleDir,
 			homeDir,
-			&created,
+			&res,
 		); err != nil {
-			return created, err
+			return res, err
 		}
 	}
-	return created, nil
+	return res, nil
 }
 
-func copyModulePath(src, dst, moduleDir, homeDir string, created *[]string) error {
+func copyModulePath(src, dst, moduleDir, homeDir string, res *materialized) error {
 	info, err := os.Lstat(src)
 	if err != nil {
 		return err
@@ -298,7 +311,7 @@ func copyModulePath(src, dst, moduleDir, homeDir string, created *[]string) erro
 			if err := os.Mkdir(dst, info.Mode().Perm()); err != nil {
 				return err
 			}
-			*created = append(*created, dst)
+			res.created = append(res.created, dst)
 		case dstErr != nil:
 			return dstErr
 		case !dstInfo.IsDir():
@@ -318,7 +331,7 @@ func copyModulePath(src, dst, moduleDir, homeDir string, created *[]string) erro
 				filepath.Join(dst, entry.Name()),
 				moduleDir,
 				homeDir,
-				created,
+				res,
 			); err != nil {
 				return err
 			}
@@ -333,22 +346,7 @@ func copyModulePath(src, dst, moduleDir, homeDir string, created *[]string) erro
 	}
 
 	if info.Mode()&os.ModeSymlink != 0 {
-		target, err := os.Readlink(src)
-		if err != nil {
-			return err
-		}
-		if filepath.IsAbs(target) && within(target, moduleDir) {
-			rel, err := filepath.Rel(moduleDir, target)
-			if err != nil {
-				return err
-			}
-			target = filepath.Join(homeDir, rel)
-		}
-		if err := os.Symlink(target, dst); err != nil {
-			return err
-		}
-		*created = append(*created, dst)
-		return nil
+		return copyModuleLink(src, dst, moduleDir, homeDir, res)
 	}
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("unsupported file type: %s", src)
@@ -363,12 +361,56 @@ func copyModulePath(src, dst, moduleDir, homeDir string, created *[]string) erro
 	if err != nil {
 		return err
 	}
-	*created = append(*created, dst)
+	res.created = append(res.created, dst)
 	if _, err := io.Copy(out, in); err != nil {
 		out.Close()
 		return err
 	}
 	return out.Close()
+}
+
+// copyModuleLink recreates the symlink src at dst so it points at the same
+// thing it did inside the module. A relative target resolves from the link's
+// own directory, so copying it verbatim would point elsewhere once the link
+// lives in $HOME. The target is resolved from src, moved into homeDir when it
+// is part of the module being copied, then written back in its original
+// style: relative stays relative (to dst), absolute stays absolute. A link
+// whose target doesn't exist is skipped rather than recreated broken.
+func copyModuleLink(src, dst, moduleDir, homeDir string, res *materialized) error {
+	target, err := os.Readlink(src)
+	if err != nil {
+		return err
+	}
+	resolved := target
+	if !filepath.IsAbs(resolved) {
+		resolved = filepath.Join(filepath.Dir(src), resolved)
+	}
+	resolved = filepath.Clean(resolved)
+
+	if _, err := os.Stat(resolved); err != nil {
+		res.skipped = append(res.skipped, fmt.Sprintf("%s: its link target %s doesn't exist", dst, target))
+		return nil
+	}
+
+	mapped := resolved
+	if within(resolved, moduleDir) {
+		rel, err := filepath.Rel(moduleDir, resolved)
+		if err != nil {
+			return err
+		}
+		mapped = filepath.Join(homeDir, rel)
+	}
+	if !filepath.IsAbs(target) {
+		if mapped, err = filepath.Rel(filepath.Dir(dst), mapped); err != nil {
+			return err
+		}
+	}
+
+	if err := os.Symlink(mapped, dst); err != nil {
+		return err
+	}
+	res.created = append(res.created, dst)
+	return nil
 }
 
 func removeCreatedPaths(paths []string) {

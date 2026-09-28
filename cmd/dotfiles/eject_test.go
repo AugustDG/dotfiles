@@ -28,11 +28,11 @@ func TestMaterializeModule(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	created, err := materializeModule(moduleDir, homeDir)
+	res, err := materializeModule(moduleDir, homeDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(created) == 0 {
+	if len(res.created) == 0 {
 		t.Fatal("expected materialized paths to be reported")
 	}
 	configPath := filepath.Join(homeDir, ".config", "app", "config.toml")
@@ -96,6 +96,58 @@ func TestPreflightMaterializeAllowsFoldedStowDirectory(t *testing.T) {
 	}
 }
 
+// TestMaterializeModuleRewritesRelativeLinks covers links whose relative
+// target would point somewhere else once the link moves from the module into
+// $HOME, like agents/.codex/AGENTS.md -> ../../claude/.claude/CLAUDE.md.
+func TestMaterializeModuleRewritesRelativeLinks(t *testing.T) {
+	root := t.TempDir()
+	dotfilesDir := filepath.Join(root, "dotfiles")
+	moduleDir := filepath.Join(dotfilesDir, "agents")
+	homeDir := filepath.Join(root, "home")
+	mustMkdir(t, filepath.Join(moduleDir, ".codex"))
+	mustMkdir(t, filepath.Join(dotfilesDir, "other", ".claude"))
+	mustMkdir(t, homeDir)
+	mustWriteFile(t, filepath.Join(dotfilesDir, "other", ".claude", "CLAUDE.md"), "instructions")
+	mustWriteFile(t, filepath.Join(moduleDir, ".apprc"), "rc")
+
+	links := map[string]string{
+		"outside":  "../../other/.claude/CLAUDE.md",  // another module, stays in the repo
+		"inside":   "../.apprc",                      // this module, moves into $HOME
+		"dangling": "../../claude/.claude/CLAUDE.md", // gone
+	}
+	for name, target := range links {
+		if err := os.Symlink(target, filepath.Join(moduleDir, ".codex", name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	res, err := materializeModule(moduleDir, homeDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name, want := range map[string]string{"outside": "instructions", "inside": "rc"} {
+		link := filepath.Join(homeDir, ".codex", name)
+		target, err := os.Readlink(link)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if filepath.IsAbs(target) {
+			t.Errorf("%s: relative link became absolute: %s", name, target)
+		}
+		if data, err := os.ReadFile(link); err != nil || string(data) != want {
+			t.Errorf("%s -> %s reads %q, %v; want %q", name, target, data, err, want)
+		}
+	}
+
+	if _, err := os.Lstat(filepath.Join(homeDir, ".codex", "dangling")); !os.IsNotExist(err) {
+		t.Error("a link with a missing target must not be recreated")
+	}
+	if len(res.skipped) != 1 || !strings.Contains(res.skipped[0], "dangling") {
+		t.Errorf("skipped = %q, want the dangling link reported", res.skipped)
+	}
+}
+
 func TestMaterializeModuleRefusesToOverwrite(t *testing.T) {
 	root := t.TempDir()
 	moduleDir := filepath.Join(root, "module")
@@ -106,11 +158,11 @@ func TestMaterializeModuleRefusesToOverwrite(t *testing.T) {
 	target := filepath.Join(homeDir, ".config", "app", "config.toml")
 	mustWriteFile(t, target, "local")
 
-	created, err := materializeModule(moduleDir, homeDir)
+	res, err := materializeModule(moduleDir, homeDir)
 	if err == nil {
 		t.Fatal("expected an overwrite conflict")
 	}
-	removeCreatedPaths(created)
+	removeCreatedPaths(res.created)
 	if data, readErr := os.ReadFile(target); readErr != nil || string(data) != "local" {
 		t.Fatalf("existing target was changed: %q, %v", data, readErr)
 	}
@@ -227,7 +279,7 @@ func TestEjectModuleDeleteFiles(t *testing.T) {
 
 	installFakeUnstow(t, root, target)
 	mod := config.Module{Name: "app", Path: moduleDir, IsStowed: true}
-	if err := ejectModule(dotfilesDir, homeDir, mod, false, false); err != nil {
+	if _, err := ejectModule(dotfilesDir, homeDir, mod, false, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(moduleDir); !os.IsNotExist(err) {
@@ -255,7 +307,7 @@ func TestEjectModuleKeepFiles(t *testing.T) {
 
 	installFakeUnstow(t, root, target)
 	mod := config.Module{Name: "app", Path: moduleDir, IsStowed: true}
-	if err := ejectModule(dotfilesDir, homeDir, mod, true, false); err != nil {
+	if _, err := ejectModule(dotfilesDir, homeDir, mod, true, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(moduleDir); !os.IsNotExist(err) {
