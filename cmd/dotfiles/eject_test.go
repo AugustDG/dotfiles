@@ -116,7 +116,7 @@ func TestMaterializeModuleRefusesToOverwrite(t *testing.T) {
 	}
 }
 
-func TestRunRemoveRejectsSubmoduleBeforeMutation(t *testing.T) {
+func TestRunEjectRejectsSubmoduleBeforeMutation(t *testing.T) {
 	root := t.TempDir()
 	dotfilesDir := filepath.Join(root, "dotfiles")
 	homeDir := filepath.Join(root, "home")
@@ -128,7 +128,7 @@ func TestRunRemoveRejectsSubmoduleBeforeMutation(t *testing.T) {
 	t.Setenv("HOME", homeDir)
 	t.Setenv("DOTFILES_DIR", dotfilesDir)
 
-	err := runRemove([]string{"app"}, true, false)
+	err := runEject([]string{"app"}, true, false)
 	if err == nil || !strings.Contains(err.Error(), "contains Git submodules") {
 		t.Fatalf("expected submodule safety error, got %v", err)
 	}
@@ -137,7 +137,7 @@ func TestRunRemoveRejectsSubmoduleBeforeMutation(t *testing.T) {
 	}
 }
 
-func TestRunRemoveWithSubmodules(t *testing.T) {
+func TestRunEjectWithSubmodules(t *testing.T) {
 	root := t.TempDir()
 	subRepo := filepath.Join(root, "subrepo")
 	dotfilesDir := filepath.Join(root, "dotfiles")
@@ -176,12 +176,12 @@ func TestRunRemoveWithSubmodules(t *testing.T) {
 
 	// Dirty nested worktrees are rejected before anything is unstowed.
 	mustWriteFile(t, filepath.Join(dotfilesDir, "app", "sub", "sub.conf"), "dirty")
-	if err := runRemove([]string{"app"}, true, true); err == nil || !strings.Contains(err.Error(), "uncommitted changes") {
+	if err := runEject([]string{"app"}, true, true); err == nil || !strings.Contains(err.Error(), "uncommitted changes") {
 		t.Fatalf("expected dirty-submodule error, got %v", err)
 	}
 	runGitTest(t, filepath.Join(dotfilesDir, "app", "sub"), "checkout", "--", "sub.conf")
 
-	if err := runRemove([]string{"app"}, true, true); err != nil {
+	if err := runEject([]string{"app"}, true, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dotfilesDir, "app")); !os.IsNotExist(err) {
@@ -210,7 +210,7 @@ func TestRunRemoveWithSubmodules(t *testing.T) {
 	runGitTest(t, dotfilesDir, "submodule", "update", "--init", "--recursive")
 }
 
-func TestRemoveModuleDeleteFiles(t *testing.T) {
+func TestEjectModuleDeleteFiles(t *testing.T) {
 	root := t.TempDir()
 	dotfilesDir := filepath.Join(root, "dotfiles")
 	homeDir := filepath.Join(root, "home")
@@ -227,7 +227,7 @@ func TestRemoveModuleDeleteFiles(t *testing.T) {
 
 	installFakeUnstow(t, root, target)
 	mod := config.Module{Name: "app", Path: moduleDir, IsStowed: true}
-	if err := removeModule(dotfilesDir, homeDir, mod, false, false); err != nil {
+	if err := ejectModule(dotfilesDir, homeDir, mod, false, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(moduleDir); !os.IsNotExist(err) {
@@ -238,7 +238,7 @@ func TestRemoveModuleDeleteFiles(t *testing.T) {
 	}
 }
 
-func TestRemoveModuleKeepFiles(t *testing.T) {
+func TestEjectModuleKeepFiles(t *testing.T) {
 	root := t.TempDir()
 	dotfilesDir := filepath.Join(root, "dotfiles")
 	homeDir := filepath.Join(root, "home")
@@ -255,7 +255,7 @@ func TestRemoveModuleKeepFiles(t *testing.T) {
 
 	installFakeUnstow(t, root, target)
 	mod := config.Module{Name: "app", Path: moduleDir, IsStowed: true}
-	if err := removeModule(dotfilesDir, homeDir, mod, true, false); err != nil {
+	if err := ejectModule(dotfilesDir, homeDir, mod, true, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(moduleDir); !os.IsNotExist(err) {
@@ -283,7 +283,7 @@ func runGitTest(t *testing.T, dir string, args ...string) {
 
 func installFakeUnstow(t *testing.T, root, target string) {
 	t.Helper()
-	// removeModule invokes GNU Stow only to unstow on these successful paths.
+	// ejectModule invokes GNU Stow only to unstow on these successful paths.
 	// This test double removes the target link just as `stow -D` would.
 	binDir := filepath.Join(root, "bin")
 	mustMkdir(t, binDir)

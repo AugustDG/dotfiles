@@ -9,19 +9,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func uninstallCmd() *cobra.Command {
+func unlinkCmd() *cobra.Command {
 	var all bool
 
 	cmd := &cobra.Command{
-		Use:               "uninstall [modules...]",
-		Short:             "Unstow modules from $HOME",
+		Use:   "unlink [modules...]",
+		Short: "Unstow modules from $HOME, keeping them in the repo",
+		Long: "Removes each module's symlinks from $HOME. The module stays in the\n" +
+			"repository, so `dotfiles install` links it again. To stop managing a\n" +
+			"module and keep its files, use `dotfiles eject`.",
 		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: moduleNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dotfilesDir := platform.DotfilesDir()
 			homeDir := platform.HomeDir()
 
-			names, err := uninstallTargets(dotfilesDir, args, all)
+			names, err := unlinkTargets(dotfilesDir, args, all)
 			if err != nil {
 				return err
 			}
@@ -42,7 +45,7 @@ func uninstallCmd() *cobra.Command {
 	return cmd
 }
 
-func uninstallTargets(dotfilesDir string, args []string, all bool) ([]string, error) {
+func unlinkTargets(dotfilesDir string, args []string, all bool) ([]string, error) {
 	if all {
 		modules, err := config.DiscoverModules(dotfilesDir)
 		if err != nil {
