@@ -1,3 +1,0 @@
-name = "agents"
-description = "Cross-tool agent instructions (AGENTS.md links to the canonical CLAUDE.md)"
-os = ["darwin", "linux"]

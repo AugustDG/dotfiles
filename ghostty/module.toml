@@ -1,3 +1,0 @@
-name = "ghostty"
-description = "Ghostty terminal emulator config"
-os = ["darwin"]

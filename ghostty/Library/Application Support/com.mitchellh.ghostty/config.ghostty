@@ -1,8 +1,0 @@
-command = /opt/homebrew/bin/tmux -f /Users/augusto.pinheiro/.config/tmux/tmux.conf new-session -A -s main
-env = PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/Applications/Ghostty.app/Contents/MacOS
-theme = iTerm2 Default
-theme = dark:iTerm2 Default,light:Tomorrow
-background-opacity = 0.95
-background-blur-radius = 25
-confirm-close-surface = false
-macos-option-as-alt = true
