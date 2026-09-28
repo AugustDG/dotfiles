@@ -1,0 +1,21 @@
+name = "ws"
+description = "ws tmux workspace manager: binary from AugustDG/ws releases, layouts, private projects submodule"
+os = ["darwin", "linux"]
+
+[deps]
+brew = ["tmux"]
+
+# The binary comes from AugustDG/ws's rolling `latest` release.
+[hooks]
+post_install = '''
+set -euo pipefail
+os=$(uname -s | tr '[:upper:]' '[:lower:]')
+case "$(uname -m)" in
+  x86_64) arch=amd64 ;;
+  arm64|aarch64) arch=arm64 ;;
+  *) echo "unsupported arch $(uname -m)" >&2; exit 1 ;;
+esac
+mkdir -p "$HOME/.local/bin"
+curl -fsSL -o "$HOME/.local/bin/ws" "https://github.com/AugustDG/ws/releases/download/latest/ws-$os-$arch"
+chmod +x "$HOME/.local/bin/ws"
+'''
