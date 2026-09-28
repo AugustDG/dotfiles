@@ -7,11 +7,10 @@ import = ["~/.config/alacritty/themes/tomorrow.toml"]
 [env]
 PATH = "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin"
 
-# Reopen the last ws workspace; fall back to the main tmux session when
-# there is none or it can't start.
+# Reopen the last ws workspace.
 [terminal.shell]
 program = "/bin/zsh"
-args = ["-c", 'ws="$HOME/.local/bin/ws"; last=$("$ws" last 2>/dev/null) && "$ws" start "$last" || exec /opt/homebrew/bin/tmux -f "$HOME/.config/tmux/tmux.conf" new-session -A -s main']
+args = ["-c", 'ws="$HOME/.local/bin/ws"; exec "$ws" start "$("$ws" last)"']
 
 [window]
 opacity = 0.95
