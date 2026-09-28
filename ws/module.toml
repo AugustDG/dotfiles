@@ -3,10 +3,9 @@ description = "ws tmux workspace manager: binary from AugustDG/ws releases, layo
 os = ["darwin", "linux"]
 
 [deps]
-brew = ["tmux", "gh"]
+brew = ["tmux"]
 
-# AugustDG/ws is private, so the binary comes from its rolling `latest`
-# release through the authenticated gh CLI.
+# The binary comes from AugustDG/ws's rolling `latest` release.
 [hooks]
 post_install = '''
 set -euo pipefail
@@ -17,6 +16,6 @@ case "$(uname -m)" in
   *) echo "unsupported arch $(uname -m)" >&2; exit 1 ;;
 esac
 mkdir -p "$HOME/.local/bin"
-gh release download latest -R AugustDG/ws -p "ws-$os-$arch" -O "$HOME/.local/bin/ws" --clobber
+curl -fsSL -o "$HOME/.local/bin/ws" "https://github.com/AugustDG/ws/releases/download/latest/ws-$os-$arch"
 chmod +x "$HOME/.local/bin/ws"
 '''
