@@ -26,8 +26,8 @@ func newRootCmd() *cobra.Command {
 	cmd.PersistentFlags().BoolVarP(&runner.Verbose, "verbose", "v", false, "Show detailed command output")
 	cmd.AddCommand(
 		installCmd(),
-		uninstallCmd(),
-		removeCmd(),
+		unlinkCmd(),
+		ejectCmd(),
 		statusCmd(),
 		updateCmd(),
 		pullCmd(),

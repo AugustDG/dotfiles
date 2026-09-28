@@ -28,11 +28,11 @@ dotfiles install --all             # Install all OS-compatible modules
 dotfiles install nvim tmux         # Install specific modules
 dotfiles install --skip-bootstrap  # Skip brew/gh/clone bootstrap steps
 
-dotfiles uninstall nvim tmux       # Unstow modules from $HOME
-dotfiles uninstall --all           # Unstow everything
-dotfiles remove atuin                    # Stop tracking; keep unmanaged files in $HOME
-dotfiles remove --delete-files atuin     # Remove the module and its managed files
-dotfiles remove --with-submodules nvim   # Also unregister nested Git submodules
+dotfiles unlink nvim tmux          # Unstow modules from $HOME; they stay in the repo
+dotfiles unlink --all              # Unstow everything
+dotfiles eject atuin                     # Stop managing; keep its files in $HOME (reverse of adopt)
+dotfiles eject --delete-files atuin      # Also drop its files from $HOME
+dotfiles eject --with-submodules nvim    # Also unregister nested Git submodules
 
 dotfiles deps                      # Install missing deps for all modules
 dotfiles deps nvim                 # …for specific modules
@@ -90,7 +90,7 @@ dotfiles completion zsh > "${fpath[1]}/_dotfiles"   # zsh (then restart your she
 dotfiles completion bash | sudo tee /etc/bash_completion.d/dotfiles
 ```
 
-Module-name arguments (`install`, `uninstall`, `remove`, `update`, `pull`,
+Module-name arguments (`install`, `unlink`, `eject`, `update`, `pull`,
 `sync`, `deps`, `adopt`, `edit`) complete dynamically from the modules in the
 repo.
 

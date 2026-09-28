@@ -14,23 +14,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func removeCmd() *cobra.Command {
+func ejectCmd() *cobra.Command {
 	var (
 		deleteFiles    bool
 		withSubmodules bool
 	)
 
 	cmd := &cobra.Command{
-		Use:   "remove <modules...>",
-		Short: "Stop tracking and remove modules",
-		Long: "Unstows each module, copies its managed files back into $HOME, and deletes\n" +
-			"the module from the dotfiles repository. Use --delete-files to remove the\n" +
-			"managed files from $HOME, and --with-submodules for modules containing Git\n" +
-			"submodules.",
+		Use:     "eject <modules...>",
+		Aliases: []string{"remove"},
+		Short:   "Stop managing modules, keeping their files in $HOME",
+		Long: "The reverse of adopt. Unstows each module, copies its managed files back\n" +
+			"into $HOME as real files, and deletes the module from the dotfiles\n" +
+			"repository. Use --delete-files to drop the files from $HOME too, and\n" +
+			"--with-submodules for modules containing Git submodules.\n\n" +
+			"To only take a module's symlinks off this machine, use `dotfiles unlink`.",
 		Args:              cobra.MinimumNArgs(1),
 		ValidArgsFunction: moduleNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRemove(args, !deleteFiles, withSubmodules)
+			return runEject(args, !deleteFiles, withSubmodules)
 		},
 	}
 
@@ -39,7 +41,7 @@ func removeCmd() *cobra.Command {
 	return cmd
 }
 
-func runRemove(names []string, keepFiles, withSubmodules bool) error {
+func runEject(names []string, keepFiles, withSubmodules bool) error {
 	dotfilesDir := platform.DotfilesDir()
 	homeDir := platform.HomeDir()
 
@@ -83,13 +85,13 @@ func runRemove(names []string, keepFiles, withSubmodules bool) error {
 	}
 
 	for _, mod := range selected {
-		if err := removeModule(dotfilesDir, homeDir, mod, keepFiles, withSubmodules); err != nil {
+		if err := ejectModule(dotfilesDir, homeDir, mod, keepFiles, withSubmodules); err != nil {
 			return err
 		}
 		if keepFiles {
-			fmt.Printf("Removed module %q; files kept in $HOME.\n", mod.Name)
+			fmt.Printf("Ejected module %q; files kept in $HOME.\n", mod.Name)
 		} else {
-			fmt.Printf("Removed module %q.\n", mod.Name)
+			fmt.Printf("Ejected module %q.\n", mod.Name)
 		}
 	}
 	return nil
@@ -114,7 +116,7 @@ func validateSubmodulesForRemoval(dotfilesDir string, mod config.Module, keepFil
 	return nil
 }
 
-func removeModule(dotfilesDir, homeDir string, mod config.Module, keepFiles, withSubmodules bool) error {
+func ejectModule(dotfilesDir, homeDir string, mod config.Module, keepFiles, withSubmodules bool) error {
 	if err := stow.Unstow(dotfilesDir, mod.Name, homeDir); err != nil {
 		return fmt.Errorf("unstow %s: %w", mod.Name, err)
 	}
@@ -151,9 +153,9 @@ func removeModule(dotfilesDir, homeDir string, mod config.Module, keepFiles, wit
 		removeCreatedPaths(created)
 		restowErr := stow.Stow(dotfilesDir, mod.Name, homeDir)
 		if restoreErr != nil || restowErr != nil {
-			return fmt.Errorf("remove %s: %w (restore submodules: %v; restore stow links: %v)", mod.Name, err, restoreErr, restowErr)
+			return fmt.Errorf("eject %s: %w (restore submodules: %v; restore stow links: %v)", mod.Name, err, restoreErr, restowErr)
 		}
-		return fmt.Errorf("remove %s: %w (submodules and stow links restored)", mod.Name, err)
+		return fmt.Errorf("eject %s: %w (submodules and stow links restored)", mod.Name, err)
 	}
 	return nil
 }
