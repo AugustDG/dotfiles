@@ -573,7 +573,6 @@ class SideConversationPanel implements Component, Focusable {
 	private selectionFocus?: SelectionPoint;
 	private selectionPressActive = false;
 	private selectionSourceLines: string[] = [];
-	private restoreWheelRoute?: () => void;
 	private restoreSelectionRoute?: () => void;
 	private disposed = false;
 
@@ -590,7 +589,6 @@ class SideConversationPanel implements Component, Focusable {
 		private readonly onClose: () => void,
 	) {
 		this.input.onSubmit = (value) => void this.submit(value);
-		this.installWheelRoute();
 		this.installSelectionRoute();
 	}
 
@@ -1019,30 +1017,17 @@ class SideConversationPanel implements Component, Focusable {
 		};
 	}
 
-	private installWheelRoute(): void {
-		const tui = this.tui as WheelRoutableTui;
-		const previous = tui.routeWheel;
-		if (typeof previous !== "function") return;
-
-		const routeWheel = (event: WheelEvent) => {
-			if (this.isInsidePanel(event)) {
-				this.scrollBy(event.direction * 3);
-				return;
-			}
-			previous.call(this.tui, event);
-		};
-		tui.routeWheel = routeWheel;
-		this.restoreWheelRoute = () => {
-			if (tui.routeWheel === routeWheel) tui.routeWheel = previous;
-		};
+	handleWheel(event: WheelEvent): boolean {
+		if (!this.isInsidePanel(event)) return false;
+		this.clearSideSelection();
+		this.scrollBy(event.direction * 3);
+		return true;
 	}
 
 	handleInput(data: string): void {
 		const wheelEvent = parseWheelEvent(data);
 		if (wheelEvent) {
-			this.clearSideSelection();
-			if (this.isInsidePanel(wheelEvent)) this.scrollBy(wheelEvent.direction * 3);
-			else (this.tui as WheelRoutableTui).routeWheel?.(wheelEvent);
+			if (!this.handleWheel(wheelEvent)) (this.tui as WheelRoutableTui).routeWheel?.(wheelEvent);
 			return;
 		}
 		if (this.keybindings.matches(data, "tui.altScreen.pageUp")) {
@@ -1207,8 +1192,6 @@ class SideConversationPanel implements Component, Focusable {
 	dispose(): void {
 		if (this.disposed) return;
 		this.disposed = true;
-		this.restoreWheelRoute?.();
-		this.restoreWheelRoute = undefined;
 		this.restoreSelectionRoute?.();
 		this.restoreSelectionRoute = undefined;
 		this.abortController.current?.abort();
@@ -1225,6 +1208,7 @@ export default function sideConversationExtension(pi: ExtensionAPI) {
 		| NonNullable<Parameters<ExtensionContext["ui"]["setEditorComponent"]>[0]>
 		| undefined;
 	let editorResources: { tui: TUI; keybindings: KeybindingsManager } | undefined;
+	let restoreWheelRoute: (() => void) | undefined;
 	let editorInstalled = false;
 	let terminalFocused = true;
 
@@ -1250,6 +1234,25 @@ export default function sideConversationExtension(pi: ExtensionAPI) {
 		current.restore();
 	};
 
+	const installWheelRoute = (baseTui: TUI) => {
+		restoreWheelRoute?.();
+		restoreWheelRoute = undefined;
+		const tui = baseTui as WheelRoutableTui;
+		const previous = tui.routeWheel;
+		if (typeof previous !== "function") return;
+
+		const routeWheel = (event: WheelEvent) => {
+			if (active?.panel.handleWheel(event)) return;
+			// Route every wheel event in the main pane through a point owned by the transcript.
+			// This keeps blank rows and the fixed editor/footer area on the same scroll surface.
+			previous.call(baseTui, { ...event, x: 0, y: 0 });
+		};
+		tui.routeWheel = routeWheel;
+		restoreWheelRoute = () => {
+			if (tui.routeWheel === routeWheel) tui.routeWheel = previous;
+		};
+	};
+
 	const installBoundaryEditor = (ctx: ExtensionContext) => {
 		if (ctx.mode !== "tui") return;
 		if (editorInstalled) {
@@ -1263,6 +1266,7 @@ export default function sideConversationExtension(pi: ExtensionAPI) {
 		const previousEditor = ctx.ui.getEditorComponent();
 		boundaryEditorFactory = (tui, theme, keybindings) => {
 			editorResources = { tui, keybindings };
+			installWheelRoute(tui);
 			const base = previousEditor?.(tui, theme, keybindings) ?? new CustomEditor(tui, theme, keybindings);
 			boundaryEditor = new SidebarBoundaryEditor(
 				base,
@@ -1344,11 +1348,14 @@ export default function sideConversationExtension(pi: ExtensionAPI) {
 
 	pi.on("session_start", (_event, ctx) => {
 		state = restoreState(ctx);
+		installBoundaryEditor(ctx);
 	});
 
 	pi.on("session_shutdown", () => {
 		closePanel();
 		active = undefined;
+		restoreWheelRoute?.();
+		restoreWheelRoute = undefined;
 		restoreEditor?.();
 		restoreEditor = undefined;
 		boundaryEditor = undefined;

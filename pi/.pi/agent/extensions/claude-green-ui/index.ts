@@ -7,6 +7,7 @@ import {
 import type { Component, EditorTheme, TUI } from "@earendil-works/pi-tui";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { basename } from "node:path";
+import { getPoName } from "../session-messages/index";
 
 const SPINNER_FRAMES = ["·", "✢", "✳", "✢"];
 const BASE_THEME = "claude-forest";
@@ -205,8 +206,8 @@ export default function poGreenUi(pi: ExtensionAPI) {
 	let sessionAccent = (text: string) => text;
 	const activeTools = new Map<string, { name: string; startedAt: number }>();
 
-	const updateSessionAccent = (ctx: ExtensionContext, name = pi.getSessionName()) => {
-		const identity = name?.trim() || ctx.sessionManager.getSessionId();
+	const updateSessionAccent = (ctx: ExtensionContext) => {
+		const identity = getPoName(ctx);
 		sessionPalette = createSessionPalette(identity, ctx.ui.theme.getColorMode());
 		sessionAccent = (text) => `${sessionPalette?.accent ?? ""}${text}\x1b[39m`;
 		patchSessionTheme(ctx.ui.theme, sessionPalette);
@@ -265,9 +266,7 @@ export default function poGreenUi(pi: ExtensionAPI) {
 	});
 	pi.on("model_select", () => activeTui?.requestRender());
 	pi.on("thinking_level_select", () => activeTui?.requestRender());
-	pi.on("session_info_changed", (event) => {
-		if (activeContext) updateSessionAccent(activeContext, event.name);
-	});
+	pi.on("session_info_changed", () => activeTui?.requestRender());
 
 	pi.on("session_start", async (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
@@ -308,9 +307,12 @@ export default function poGreenUi(pi: ExtensionAPI) {
 				const activity = currentTool
 					? `${currentTool.name}${runningTools.length > 1 ? ` +${runningTools.length - 1}` : ""}`
 					: "thinking";
+				const sessionName = getPoName(ctx);
 				const working = sessionAccent(
 					theme.bold(
-						isWorking ? ` ${SPINNER_FRAMES[spinnerIndex]} ${activity} ${formatElapsed(workingStartedAt)} ` : " po ",
+						isWorking
+							? ` ${sessionName} · ${SPINNER_FRAMES[spinnerIndex]} ${activity} ${formatElapsed(workingStartedAt)} `
+							: ` ${sessionName} `,
 					),
 				);
 				const separator = theme.fg("dim", " · ");

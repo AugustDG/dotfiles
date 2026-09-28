@@ -1,6 +1,29 @@
 {
   "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
   "servers": {
+    "cloudflare-api": {
+      "enabled": true,
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@0.1.38",
+        "https://mcp.cloudflare.com/mcp",
+        "--static-oauth-client-metadata",
+        "{\"scope\":\"user:read account:read offline_access\"}",
+        "--auth-timeout",
+        "120"
+      ],
+      "startupTimeoutMs": 120000
+    },
+    "grafana": {
+      "enabled": true,
+      "description": "Botpress Grafana dashboards, metrics, logs, and alerts",
+      "transport": "stdio",
+      "command": "/Users/augusto.pinheiro/.pi/agent/bin/grafana-mcp",
+      "args": [],
+      "startupTimeoutMs": 60000
+    },
     "chrome-devtools": {
       "enabled": true,
       "description": "Inspect, debug, and automate Chrome through DevTools.",

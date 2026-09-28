@@ -2,7 +2,8 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { MouseRegion, Text } from "@earendil-works/pi-tui";
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
@@ -17,6 +18,98 @@ const PRESENCE_STALE_MS = 60_000;
 const CLAIM_STALE_MS = 60_000;
 const MAX_MESSAGE_LENGTH = 10_000;
 const MAX_LISTED_SESSIONS = 30;
+const FIRST_NAMES = [
+	"Alex", "Amelia", "Andre", "Aria", "Ben", "Camila", "Carlos", "Charlotte",
+	"Christina", "Clara", "Daniel", "David", "Elena", "Elias", "Emma", "Eva",
+	"Felix", "Gabriel", "Grace", "Hannah", "Hugo", "Iris", "Isaac", "Isabel",
+	"Jack", "James", "Jasmine", "John", "Julia", "Kai", "Laura", "Leo",
+	"Liam", "Lily", "Lucas", "Luna", "Maya", "Mia", "Milo", "Nadia",
+	"Nina", "Noah", "Nora", "Oliver", "Olivia", "Oscar", "Rafael", "Rose",
+	"Ruby", "Sam", "Sara", "Sofia", "Theo", "Thomas", "Vera", "Victor",
+	"Violet", "William", "Zara", "Zoe",
+	"Aaron", "Abigail", "Adam", "Adrian", "Aisha", "Alice", "Anika", "Anna",
+	"Arthur", "Augusto", "Aurora", "Beatriz", "Bella", "Bruno", "Caleb", "Celine",
+	"Chloe", "Dante", "Diana", "Diego", "Dylan", "Eleanor", "Emilio", "Eric",
+	"Ethan", "Fatima", "Finn", "Flora", "Freya", "George", "Giulia", "Helena",
+	"Henry", "Idris", "Imani", "Ines", "Irene", "Ivan", "Jade", "Javier",
+	"Joana", "Jonas", "Joseph", "Julian", "Layla", "Leila", "Levi", "Luca",
+	"Lucia", "Luis", "Maeve", "Malik", "Marco", "Maria", "Mateo", "Matilda",
+	"Miguel", "Miriam", "Naomi", "Natalia", "Nathan", "Nico", "Omar", "Otis",
+	"Paulo", "Pedro", "Penelope", "Priya", "Quinn", "Ravi", "Remy", "Rita",
+	"Rosa", "Rowan", "Sakura", "Salma", "Santiago", "Sebastian", "Selena", "Simon",
+	"Stella", "Tara", "Teresa", "Tobias", "Valentina", "Vincent", "Yara", "Yuki",
+] as const;
+
+const ADJECTIVE_TONES: Record<string, string> = {
+	Curious: "Show a little extra curiosity about causes and alternatives.",
+	Cheerful: "Be lightly upbeat without forced enthusiasm.",
+	Calm: "Use measured, unhurried phrasing.",
+	Witty: "Allow occasional dry wit, never at the user's expense.",
+	Thoughtful: "Give tradeoffs a little extra consideration in your phrasing.",
+	Bold: "State well-supported recommendations confidently and directly.",
+	Gentle: "Use considerate, low-pressure phrasing.",
+	Pragmatic: "Emphasize practical outcomes and concrete next steps.",
+	Skeptical: "Be mildly questioning of assumptions, while remaining constructive.",
+	Playful: "Use a light playful touch without distracting from the task.",
+	Patient: "Explain patiently without sounding patronizing.",
+	Precise: "Favor exact, economical wording.",
+	Resolute: "Sound quietly determined and focused on finishing the task.",
+	Optimistic: "Emphasize feasible paths forward without minimizing risks.",
+	Candid: "Be plainspoken and tactful about limitations and tradeoffs.",
+	Diplomatic: "Frame disagreements tactfully while staying clear and honest.",
+	Inquisitive: "Show interest in the reasoning behind requirements.",
+	Resourceful: "Sound inventive about practical alternatives.",
+	Methodical: "Use orderly, deliberate explanations.",
+	Serene: "Keep a composed, steady tone even when troubleshooting.",
+	Spirited: "Bring a small amount of energy and liveliness.",
+	Stoic: "Be restrained, matter-of-fact, and steady.",
+	Tenacious: "Sound persistent about solving problems, not about winning arguments.",
+	Warm: "Use a slightly warmer, approachable tone.",
+	Whimsical: "Allow an occasional imaginative turn of phrase, keeping technical content clear.",
+	Earnest: "Sound sincere and purposeful without becoming solemn.",
+	Intrepid: "Approach difficult tasks with composed confidence, not recklessness.",
+	Reflective: "Use a lightly contemplative tone when discussing decisions.",
+	Astute: "Highlight important distinctions with crisp observations.",
+	Diligent: "Sound attentive and conscientious without extra verbosity.",
+	Vindicating: "Use a mildly vindicative, 'let the evidence settle it' tone: take quiet satisfaction in substantiating a correct claim. Never gloat, target people, seek revenge, or distort evidence.",
+};
+const SESSION_NAMES = [...FIRST_NAMES, ...Object.keys(ADJECTIVE_TONES)];
+
+function defaultSessionName(id: string): string {
+	// Stable across reload/resume, including sessions not yet flushed to disk.
+	const index = createHash("sha256").update(id).digest().readUInt32BE(0) % SESSION_NAMES.length;
+	return `${SESSION_NAMES[index]} Po`;
+}
+
+interface PoIdentity {
+	sessionId: string;
+	name: string;
+}
+
+export function getPoName(ctx: Pick<ExtensionContext, "sessionManager">): string {
+	const id = ctx.sessionManager.getSessionId();
+	for (const entry of [...ctx.sessionManager.getEntries()].reverse()) {
+		if (entry.type !== "custom" || entry.customType !== "po-identity") continue;
+		const identity = entry.data as PoIdentity | undefined;
+		if (identity?.sessionId === id && typeof identity.name === "string" && identity.name.trim()) return identity.name;
+	}
+	return defaultSessionName(id);
+}
+
+async function storedPoName(path: string | undefined, id: string): Promise<string> {
+	if (path) {
+		try {
+			const lines = (await readFile(path, "utf8")).trim().split("\n");
+			for (const line of lines.reverse()) {
+				if (!line.includes('"po-identity"')) continue;
+				const entry = JSON.parse(line);
+				if (entry.type === "custom" && entry.customType === "po-identity"
+					&& entry.data?.sessionId === id && typeof entry.data.name === "string" && entry.data.name.trim()) return entry.data.name;
+			}
+		} catch { /* Unreadable sessions still have a deterministic identity. */ }
+	}
+	return defaultSessionName(id);
+}
 
 interface Envelope {
 	version: 1;
@@ -55,6 +148,7 @@ interface KnownSession {
 	cwd: string;
 	name?: string;
 	firstMessage?: string;
+	sessionName?: string;
 	modified: Date;
 	active: boolean;
 }
@@ -164,26 +258,28 @@ async function readActivePresence(): Promise<Presence[]> {
 }
 
 async function knownSessions(sessionDir?: string): Promise<KnownSession[]> {
-	const [defaultStored, customStored, presence] = await Promise.all([
+	const presence = await readActivePresence();
+	if (presence.length === 0) return [];
+	const [defaultStored, customStored] = await Promise.all([
 		SessionManager.listAll(),
 		sessionDir ? SessionManager.listAll(sessionDir) : Promise.resolve([]),
-		readActivePresence(),
 	]);
 	const stored = [...defaultStored, ...customStored];
 	const activeIds = new Set(presence.map((item) => item.sessionId));
 	const byId = new Map<string, KnownSession>();
 
-	for (const session of stored) {
+	await Promise.all(stored.filter((session) => activeIds.has(session.id)).map(async (session) => {
 		byId.set(session.id, {
 			id: session.id,
 			path: session.path,
 			cwd: session.cwd,
-			name: session.name,
+			name: await storedPoName(session.path, session.id),
+			sessionName: session.name,
 			firstMessage: session.firstMessage,
 			modified: session.modified,
 			active: activeIds.has(session.id),
 		});
-	}
+	}));
 
 	for (const item of presence) {
 		const existing = byId.get(item.sessionId);
@@ -211,13 +307,13 @@ async function knownSessions(sessionDir?: string): Promise<KnownSession[]> {
 
 function formatSessions(sessions: KnownSession[], currentSessionId: string): string {
 	const peers = sessions.filter((session) => session.id !== currentSessionId).slice(0, MAX_LISTED_SESSIONS);
-	if (peers.length === 0) return "No other Po sessions found.";
+	if (peers.length === 0) return "No other active Po sessions found.";
 	const lines = peers.map((session) => {
 		const status = session.active ? "active" : "offline";
-		return `${compactId(session.id)}  [${status}]  ${displayName(session)}  —  ${session.cwd || "unknown cwd"}`;
+		return `${displayName(session)} (${compactId(session.id)})  [${status}]${session.sessionName ? `  ·  ${session.sessionName}` : ""}  —  ${session.cwd || "unknown cwd"}`;
 	});
 	const omitted = sessions.filter((session) => session.id !== currentSessionId).length - peers.length;
-	if (omitted > 0) lines.push(`…and ${omitted} older session(s).`);
+	if (omitted > 0) lines.push(`…and ${omitted} active session(s).`);
 	return `Po sessions (target by the 8-character ID, exact name, or cwd):\n${lines.join("\n")}`;
 }
 
@@ -243,7 +339,7 @@ function resolveTarget(target: string, sessions: KnownSession[], currentSessionI
 			return cwd === normalized || basename(cwd) === normalized;
 		});
 	}
-	if (matches.length === 0) throw new Error(`No Po session matches "${query}". List sessions and use its 8-character ID.`);
+	if (matches.length === 0) throw new Error(`No active Po session matches "${query}". List sessions and use its 8-character ID.`);
 	if (matches.length > 1) {
 		throw new Error(`"${query}" matches multiple sessions: ${matches.slice(0, 8).map((session) => compactId(session.id)).join(", ")}. Use an ID.`);
 	}
@@ -402,7 +498,7 @@ function sessionFromContext(ctx: ExtensionContext, pi: ExtensionAPI): CurrentSes
 		id: ctx.sessionManager.getSessionId(),
 		file: ctx.sessionManager.getSessionFile(),
 		sessionDir: ctx.sessionManager.getSessionDir(),
-		name: pi.getSessionName(),
+		name: getPoName(ctx),
 		cwd: ctx.cwd,
 		startedAt: new Date().toISOString(),
 	};
@@ -441,7 +537,7 @@ export default function sessionMessages(pi: ExtensionAPI) {
 		name: "session_message",
 		label: "Session message",
 		description:
-			"List other Po sessions or send a text message to one. Active sessions receive messages live; offline sessions receive queued messages when resumed.",
+			"List other active Po instances or send a text message to one. Inactive sessions are excluded from discovery and targeting; saved sessions remain available via /resume.",
 		promptSnippet: "List Po sessions and send messages between them",
 		promptGuidelines: [
 			"Use session_message when the user asks to list, contact, coordinate with, or send information to another Po session.",
@@ -452,6 +548,17 @@ export default function sessionMessages(pi: ExtensionAPI) {
 			message: Type.Optional(Type.String({ description: `For send: message text, up to ${MAX_MESSAGE_LENGTH.toLocaleString()} characters` })),
 		}),
 		executionMode: "sequential",
+		renderCall(args, theme) {
+			return new Text(theme.fg("toolTitle", args.action === "send"
+				? `Send message → ${args.target ?? "…"}` : "List Po sessions"), 0, 0);
+		},
+		renderResult(result, { expanded }, theme, context) {
+			let text = result.content.filter((item) => item.type === "text").map((item) => item.text).join("\n");
+			if (context.args.action === "send" && typeof context.args.message === "string") {
+				text += expanded ? `\n\n${context.args.message}` : theme.fg("dim", "\n▸ Expand to view message");
+			}
+			return new Text(text, 0, 0);
+		},
 		async execute(_toolCallId, params) {
 			if (!current) throw new Error("The current Po session is not ready.");
 			if (params.action === "list") {
@@ -465,7 +572,7 @@ export default function sessionMessages(pi: ExtensionAPI) {
 				throw new Error("Both target and message are required when action is send.");
 			}
 			const result = await send(params.target, params.message);
-			const status = result.live ? "queued for live delivery" : "queued for delivery when that session resumes";
+			const status = "queued for live delivery";
 			return {
 				content: [{ type: "text", text: `Message ${status}: ${displayName(result.target)} (${compactId(result.target.id)}).` }],
 				details: { currentSessionId: current.id, targetSessionId: result.target.id, live: result.live },
@@ -474,7 +581,7 @@ export default function sessionMessages(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("peers", {
-		description: "List other Po sessions and their live/offline status",
+		description: "List other active Po instances",
 		async handler(_args, ctx) {
 			try {
 				const session = current ?? sessionFromContext(ctx, pi);
@@ -483,6 +590,22 @@ export default function sessionMessages(pi: ExtensionAPI) {
 				ctx.ui.notify(`Could not list Po sessions: ${errorMessage(error)}`, "error");
 			}
 		},
+	});
+
+	pi.registerEntryRenderer<{ summary: string; message: string }>("po-sent-message", (entry, options, theme) => {
+		if (!entry.data) return undefined;
+		const { summary, message } = entry.data;
+		let expanded = options.expanded;
+		const text = new Text("", 1, 0);
+		const update = () => text.setText(theme.fg("accent", `${expanded ? "▾" : "▸"} ${summary}`)
+			+ (expanded ? `\n\n${message}` : theme.fg("dim", " — expand to view message")));
+		update();
+		return new MouseRegion(text, (event) => {
+			if (event.type !== "click" || event.button !== "left") return undefined;
+			expanded = !expanded;
+			update();
+			return { handled: true };
+		});
 	});
 
 	pi.registerCommand("send", {
@@ -495,12 +618,10 @@ export default function sessionMessages(pi: ExtensionAPI) {
 			}
 			try {
 				const result = await send(parsed.target, parsed.message);
-				ctx.ui.notify(
-					result.live
-						? `Message queued for live delivery to ${displayName(result.target)} (${compactId(result.target.id)}).`
-						: `Session is offline; message queued until ${displayName(result.target)} (${compactId(result.target.id)}) resumes.`,
-					"info",
-				);
+				pi.appendEntry("po-sent-message", {
+					summary: `Message → ${displayName(result.target)} (${compactId(result.target.id)}) — queued for live delivery`,
+					message: parsed.message.trim(),
+				});
 			} catch (error) {
 				ctx.ui.notify(`Could not send message: ${errorMessage(error)}`, "error");
 			}
@@ -510,6 +631,10 @@ export default function sessionMessages(pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		generation += 1;
 		const expectedGeneration = generation;
+		const identity = { sessionId: ctx.sessionManager.getSessionId(), name: getPoName(ctx) };
+		const hasIdentity = ctx.sessionManager.getEntries().some((entry) => entry.type === "custom"
+			&& entry.customType === "po-identity" && (entry.data as PoIdentity | undefined)?.sessionId === identity.sessionId);
+		if (!hasIdentity) pi.appendEntry("po-identity", identity);
 		const session = sessionFromContext(ctx, pi);
 		current = session;
 
@@ -531,11 +656,19 @@ export default function sessionMessages(pi: ExtensionAPI) {
 		void poll(expectedGeneration);
 	});
 
-	pi.on("session_info_changed", async (event) => {
-		if (!current) return;
-		current.name = event.name;
-		await writePresence(current).catch(() => undefined);
+	pi.on("before_agent_start", (event) => {
+		const name = current?.name;
+		if (!name) return;
+		const adjective = name.endsWith(" Po") ? name.slice(0, -3) : "";
+		const tone = ADJECTIVE_TONES[adjective];
+		return {
+			systemPrompt: `${event.systemPrompt}\n\nYour session identity is ${JSON.stringify(name)}.`
+				+ (tone ? ` Subtle tone preference: ${tone} This is a light stylistic accent only; keep answers concise and technically rigorous. Never let the persona override accuracy, uncertainty, safety, user instructions, or respectful collaboration. Do not announce or repeatedly perform the persona.` : ""),
+		};
 	});
+
+	// Session titles (/name) deliberately do not change the Po identity.
+
 
 	pi.on("session_shutdown", async () => {
 		generation += 1;
