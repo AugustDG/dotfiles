@@ -20,7 +20,7 @@ func addCmd() *cobra.Command {
 		Use:   "add <name>",
 		Short: "Scaffold a new empty module",
 		Long: "Creates a new module directory with a module.toml. Add files to it and run\n" +
-			"`dotfiles install <name>`, or use `dotfiles adopt <name> <path>` to pull an\n" +
+			"`dotfiles link <name>`, or use `dotfiles adopt <name> <path>` to pull an\n" +
 			"existing config in.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +37,7 @@ func addCmd() *cobra.Command {
 				return fmt.Errorf("module %q already exists at %s", name, dir)
 			}
 			fmt.Printf("Created module %q at %s\n", name, dir)
-			fmt.Printf("Add files, then run: dotfiles install %s\n", name)
+			fmt.Printf("Add files, then run: dotfiles link %s\n", name)
 			return nil
 		},
 	}

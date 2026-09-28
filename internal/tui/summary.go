@@ -17,7 +17,7 @@ var (
 
 type ModuleResult struct {
 	Name    string
-	Status  string // "installed", "failed", "skipped"
+	Status  string // "linked", "failed", "skipped"
 	Warning string
 	Hint    string // optional actionable suggestion shown after a failure
 }
@@ -33,7 +33,7 @@ func NewSummaryModel(results []ModuleResult) SummaryModel {
 func (m SummaryModel) View() string {
 	var b strings.Builder
 
-	b.WriteString(summaryTitle.Render("Installation Summary"))
+	b.WriteString(summaryTitle.Render("Link Summary"))
 	b.WriteString("\n")
 	b.WriteString(separatorStyle.Render(strings.Repeat("─", 50)))
 	b.WriteString("\n\n")
@@ -41,7 +41,7 @@ func (m SummaryModel) View() string {
 	for _, r := range m.results {
 		var icon string
 		switch r.Status {
-		case "installed":
+		case "linked":
 			icon = successStyle.Render("✓")
 		case "failed":
 			icon = failureStyle.Render("x")

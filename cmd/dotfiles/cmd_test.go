@@ -201,20 +201,20 @@ func mustWriteFile(t *testing.T, path, content string) {
 	}
 }
 
-func TestInstallResultsError(t *testing.T) {
-	if err := installResultsError(nil); err != nil {
+func TestLinkResultsError(t *testing.T) {
+	if err := linkResultsError(nil); err != nil {
 		t.Errorf("no results should be nil, got %v", err)
 	}
-	ok := []tui.ModuleResult{{Name: "a", Status: "installed"}, {Name: "b", Status: "skipped"}}
-	if err := installResultsError(ok); err != nil {
+	ok := []tui.ModuleResult{{Name: "a", Status: "linked"}, {Name: "b", Status: "skipped"}}
+	if err := linkResultsError(ok); err != nil {
 		t.Errorf("all-ok should be nil, got %v", err)
 	}
 	mixed := []tui.ModuleResult{
-		{Name: "a", Status: "installed"},
+		{Name: "a", Status: "linked"},
 		{Name: "b", Status: "failed"},
 		{Name: "c", Status: "failed"},
 	}
-	err := installResultsError(mixed)
+	err := linkResultsError(mixed)
 	if err == nil {
 		t.Fatal("expected error when a module failed")
 	}

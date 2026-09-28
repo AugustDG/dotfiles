@@ -2,7 +2,7 @@
 # Bootstrap installer for AugustDG/dotfiles.
 #
 # Downloads the pre-built dotfiles CLI binary for this platform from the latest
-# GitHub release and runs `dotfiles install`.
+# GitHub release and runs `dotfiles init`.
 #
 # Usage:
 #   curl -sL https://raw.githubusercontent.com/AugustDG/dotfiles/master/install.sh | bash
@@ -48,11 +48,11 @@ mv "$TMPFILE" "${INSTALL_DIR}/dotfiles"
 
 export PATH="$INSTALL_DIR:$PATH"
 
-log "Running dotfiles install..."
+log "Running dotfiles init..."
 # Under `curl | bash`, stdin is the script pipe; reattach the terminal so the
 # interactive module picker can run.
 if ( : </dev/tty ) 2>/dev/null; then
-  exec dotfiles install </dev/tty
+  exec dotfiles init </dev/tty
 else
-  exec dotfiles install
+  exec dotfiles init
 fi
