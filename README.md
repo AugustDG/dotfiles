@@ -106,6 +106,7 @@ tmux/      → ~/.config/tmux      (submodule AugustDG/tmux-config)
 yazi/      → ~/.config/yazi      (submodule AugustDG/yazi-config)
 opencode/  → ~/.config/opencode  (submodule AugustDG/opencode-config)
 zed/       → ~/.config/zed       (submodule AugustDG/zed-config)
+ws/        → ~/.config/ws        (installs the ws binary from AugustDG/ws; projects/ is private submodule AugustDG/ws-projects)
 ghostty/   → ~/Library/Application Support/com.mitchellh.ghostty   (macOS only)
 i3/        → ~/.i3, ~/.config/dunst   (submodule AugustDG/i3-config — Linux only)
 ```
