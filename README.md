@@ -101,12 +101,10 @@ the shell.
 ```
 zsh/       → ~/.zshenv, ~/.zprofile, ~/.zshrc
 git/       → ~/.gitconfig
-claude/    → ~/.claude/{CLAUDE.md, settings.json, skills/}
 pi/        → ~/.pi/agent/{settings, keybindings, themes, mcp config, extensions}
 nvim/      → ~/.config/nvim      (submodule AugustDG/nvim-config)
 tmux/      → ~/.config/tmux      (submodule AugustDG/tmux-config)
 yazi/      → ~/.config/yazi      (submodule AugustDG/yazi-config)
-opencode/  → ~/.config/opencode  (submodule AugustDG/opencode-config)
 zed/       → ~/.config/zed       (submodule AugustDG/zed-config)
 ws/        → ~/.config/ws        (installs the ws binary from AugustDG/ws; projects/ is private submodule AugustDG/ws-projects)
 ghostty/   → ~/Library/Application Support/com.mitchellh.ghostty   (macOS only)
