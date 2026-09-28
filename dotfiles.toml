@@ -2,7 +2,7 @@
 #
 # This file is optional — the CLI ships with the same values as built-in
 # defaults, so a fresh bootstrap works before the repo is even cloned. Edit it
-# to change the toolchain the `install` bootstrap phase sets up, then run
+# to change the toolchain the `init` bootstrap phase sets up, then run
 # `dotfiles pull` (or re-run the installer) to apply.
 
 [bootstrap]

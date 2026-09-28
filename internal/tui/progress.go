@@ -110,7 +110,7 @@ func (m ProgressModel) Update(msg tea.Msg) (ProgressModel, tea.Cmd) {
 func (m ProgressModel) View() string {
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render("Installing dotfiles"))
+	b.WriteString(titleStyle.Render("Linking modules"))
 	b.WriteString("\n\n")
 
 	for _, s := range m.bootstrapSteps {

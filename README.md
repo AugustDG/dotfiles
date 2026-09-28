@@ -11,77 +11,77 @@ diagnosing, and authoring your dotfiles.
 curl -sL https://raw.githubusercontent.com/AugustDG/dotfiles/master/install.sh | bash
 ```
 
-This downloads the pre-built `dotfiles` CLI, then runs `dotfiles install` which
+This downloads the pre-built `dotfiles` CLI, then runs `dotfiles init`, which
 bootstraps Homebrew, installs the toolchain, clones this repo, and presents an
 interactive module picker.
 
 ## Commands
 
 Run `dotfiles <command> --help` for full flags. `-v/--verbose` shows the
-underlying command output for any command.
+underlying command output for any command. `dotfiles --help` lists commands in
+the same groups as below.
 
-### Install & manage
-
-```bash
-dotfiles install                   # Interactive TUI — pick modules to install
-dotfiles install --all             # Install all OS-compatible modules
-dotfiles install nvim tmux         # Install specific modules
-dotfiles install --skip-bootstrap  # Skip brew/gh/clone bootstrap steps
-
-dotfiles unlink nvim tmux          # Unstow modules from $HOME; they stay in the repo
-dotfiles unlink --all              # Unstow everything
-dotfiles eject atuin                     # Stop managing; keep its files in $HOME (reverse of adopt)
-dotfiles eject --delete-files atuin      # Also drop its files from $HOME
-dotfiles eject --with-submodules nvim    # Also unregister nested Git submodules
-
-dotfiles deps                      # Install missing deps for all modules
-dotfiles deps nvim                 # …for specific modules
-```
-
-### Stay in sync
+### Set up this machine
 
 ```bash
-dotfiles status                    # Repo state + per-module stow/submodule/deps table
-dotfiles status --check            # Exit non-zero if dirty/unpushed or links broken (for prompts/CI)
-
-dotfiles pull                      # git pull + sync submodules + re-stow installed modules
-dotfiles pull nvim tmux            # …limited to specific modules
-
-dotfiles update                    # Bump submodules to their upstream latest, re-stow
-dotfiles update tmux               # …for specific modules
-
-dotfiles sync                      # Commit & push local changes, submodules first
-dotfiles sync tmux -m "msg"        # Sync specific modules with a commit message
-dotfiles sync --dry-run            # Show what would be committed and pushed
-
+dotfiles init                      # Bootstrap brew/gh/repo/toolchain, then pick modules to link
+dotfiles init --adopt              # …absorbing conflicting files into the repo instead of failing
+dotfiles doctor                    # Health check: tools, repo, gh auth, shell, PATH,
+                                   # module deps, submodules, dangling links (exit 1 on failure)
 dotfiles self-update               # Download & install the latest CLI binary in place
 ```
 
-`pull` fetches the repo from origin and brings submodules to the recorded
-commits; `update` advances submodules to their own upstream HEAD. `pull`
-re-stows currently-installed modules so new files get linked.
+`init` is safe to rerun. Without a terminal it links every OS-compatible module.
 
-### Diagnose & repair
+### Link modules into $HOME
 
 ```bash
-dotfiles doctor                    # Health check: tools, repo, gh auth, shell, PATH,
-                                   # module deps, submodules, dangling links (exit 1 on failure)
+dotfiles link                      # Interactive picker
+dotfiles link nvim tmux            # Stow modules, install their deps, run their hooks
+dotfiles link --all                # Every OS-compatible module
+dotfiles unlink nvim tmux          # Remove their symlinks; the modules stay in the repo
+dotfiles unlink --all              # Unlink everything
+
+dotfiles status                    # Repo state + per-module stow/submodule/deps table
+dotfiles status --check            # Exit non-zero if dirty/unpushed or links broken (for prompts/CI)
+dotfiles deps                      # Install missing deps for all modules
+dotfiles deps nvim                 # …for specific modules
 dotfiles clean                     # Remove dangling symlinks left by removed dotfiles
 dotfiles clean --dry-run           # Preview what would be removed
 ```
+
+### Sync the repo
+
+```bash
+dotfiles pull                      # git pull + sync submodules + re-stow linked modules
+dotfiles pull nvim tmux            # …limited to specific modules
+dotfiles update                    # Bump submodules to their upstream latest, re-stow
+dotfiles update tmux               # …for specific modules
+dotfiles sync                      # Commit & push local changes, submodules first
+dotfiles sync tmux -m "msg"        # Sync specific modules with a commit message
+dotfiles sync --dry-run            # Show what would be committed and pushed
+```
+
+`pull` fetches the repo from origin and brings submodules to the recorded
+commits; `update` advances submodules to their own upstream HEAD. Both re-stow
+linked modules so new files get linked.
 
 ### Author modules
 
 ```bash
 dotfiles add fish --desc "Fish shell"   # Scaffold a new module directory + module.toml
 dotfiles adopt fish ~/.config/fish      # Move existing $HOME config into the module and stow it
+dotfiles eject atuin                    # Stop managing; keep its files in $HOME (reverse of adopt)
+dotfiles eject --delete-files atuin     # Also drop its files from $HOME
+dotfiles eject --with-submodules nvim   # Also unregister nested Git submodules
 dotfiles edit                           # Open the dotfiles repo in $EDITOR
 dotfiles edit nvim                      # Open a specific module
 ```
 
 `adopt` moves each given path (which must live under `$HOME`) into the module at
 its `$HOME`-relative location, then stows it so the original path becomes a
-symlink — the safe way to bring an existing config under management.
+symlink. It's the safe way to bring an existing config under management, and
+`eject` undoes it.
 
 ### Shell completion
 
@@ -90,9 +90,11 @@ dotfiles completion zsh > "${fpath[1]}/_dotfiles"   # zsh (then restart your she
 dotfiles completion bash | sudo tee /etc/bash_completion.d/dotfiles
 ```
 
-Module-name arguments (`install`, `unlink`, `eject`, `update`, `pull`,
+Module-name arguments (`link`, `unlink`, `eject`, `update`, `pull`,
 `sync`, `deps`, `adopt`, `edit`) complete dynamically from the modules in the
-repo.
+repo. znap caches zsh's completion list in `~/.cache/zsh/compdump`, so after
+adding a new completion file run `rm ~/.cache/zsh/compdump*` before restarting
+the shell.
 
 ## Layout
 

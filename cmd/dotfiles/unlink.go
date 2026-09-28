@@ -14,9 +14,9 @@ func unlinkCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "unlink [modules...]",
-		Short: "Unstow modules from $HOME, keeping them in the repo",
+		Short: "Remove modules' symlinks from $HOME, keeping them in the repo",
 		Long: "Removes each module's symlinks from $HOME. The module stays in the\n" +
-			"repository, so `dotfiles install` links it again. To stop managing a\n" +
+			"repository, so `dotfiles link` links it again. To stop managing a\n" +
 			"module and keep its files, use `dotfiles eject`.",
 		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: moduleNameCompletion,

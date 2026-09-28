@@ -12,42 +12,37 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type installOptions struct {
-	all           bool
-	skipBootstrap bool
-	adopt         bool
+type linkOptions struct {
+	all   bool
+	adopt bool
 }
 
-func installCmd() *cobra.Command {
-	opts := installOptions{}
+func linkCmd() *cobra.Command {
+	opts := linkOptions{}
 
 	cmd := &cobra.Command{
-		Use:               "install [modules...]",
-		Short:             "Install dotfiles modules",
+		Use:   "link [modules...]",
+		Short: "Symlink modules into $HOME, with their deps and hooks",
+		Long: "Stows each module, installs its package deps and runs its post_install\n" +
+			"hook. With no modules, a terminal gets a picker. The reverse is\n" +
+			"`dotfiles unlink`. To set up a new machine, use `dotfiles init`.",
 		ValidArgsFunction: moduleNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInstall(opts, args)
+			return runLink(platform.DotfilesDir(), opts, args)
 		},
 	}
 
-	cmd.Flags().BoolVar(&opts.all, "all", false, "Install all OS-compatible modules")
-	cmd.Flags().BoolVar(&opts.skipBootstrap, "skip-bootstrap", false, "Skip the bootstrap phase")
+	cmd.Flags().BoolVar(&opts.all, "all", false, "Link all OS-compatible modules")
 	cmd.Flags().BoolVar(&opts.adopt, "adopt", false, "On conflict, absorb existing target files into the repo (stow --adopt), then symlink")
 	return cmd
 }
 
-func runInstall(opts installOptions, args []string) error {
-	dotfilesDir := platform.DotfilesDir()
+// runLink links the named modules, all compatible ones with opts.all, or
+// the ones picked interactively when neither is given in a terminal.
+func runLink(dotfilesDir string, opts linkOptions, args []string) error {
 	interactive := platform.IsInteractive() && len(args) == 0 && !opts.all
-	installAll := opts.all || (!interactive && len(args) == 0)
-
-	if !opts.skipBootstrap {
-		fmt.Println()
-		inst := bootstrap.NewInstaller(nil, dotfilesDir)
-		if err := inst.RunBootstrap(); err != nil {
-			return fmt.Errorf("bootstrap failed: %w", err)
-		}
-		fmt.Println()
+	if !interactive && !opts.all && len(args) == 0 {
+		return fmt.Errorf("requires at least 1 module, or use --all")
 	}
 
 	modules, err := config.DiscoverModules(dotfilesDir)
@@ -55,7 +50,7 @@ func runInstall(opts installOptions, args []string) error {
 		return fmt.Errorf("discover modules: %w", err)
 	}
 
-	selected, err := installTargets(modules, args, installAll, interactive)
+	selected, err := linkTargets(modules, args, opts.all, interactive)
 	if err != nil {
 		return err
 	}
@@ -66,7 +61,7 @@ func runInstall(opts installOptions, args []string) error {
 	return runModuleInstall(dotfilesDir, selected, interactive, opts.adopt)
 }
 
-func installTargets(modules []config.Module, args []string, all, interactive bool) ([]config.Module, error) {
+func linkTargets(modules []config.Module, args []string, all, interactive bool) ([]config.Module, error) {
 	if interactive {
 		selected, ok, err := selectModulesInteractively(modules)
 		if err != nil || !ok {
@@ -126,7 +121,7 @@ func runModuleInstall(dotfilesDir string, modules []config.Module, interactive, 
 			results = append(results, result)
 			program.Send(tui.ModuleResultMsg{Result: result})
 		}
-		errCh <- installResultsError(results)
+		errCh <- linkResultsError(results)
 		program.Send(tui.AllDoneMsg{})
 	}()
 
@@ -156,12 +151,12 @@ func runModuleInstallPlain(dotfilesDir string, modules []config.Module, adopt bo
 	for _, result := range results {
 		fmt.Printf("  %s %-12s %s\n", installStatusIcon(result.Status), result.Name, result.Status)
 	}
-	return installResultsError(results)
+	return linkResultsError(results)
 }
 
-// installResultsError returns a non-zero error when any module failed, so the
+// linkResultsError returns a non-zero error when any module failed, so the
 // process exit code reflects partial failure (e.g. for CI or shell chaining).
-func installResultsError(results []tui.ModuleResult) error {
+func linkResultsError(results []tui.ModuleResult) error {
 	var failed []string
 	for _, r := range results {
 		if r.Status == "failed" {
@@ -171,12 +166,12 @@ func installResultsError(results []tui.ModuleResult) error {
 	if len(failed) == 0 {
 		return nil
 	}
-	return fmt.Errorf("%d module(s) failed to install: %s", len(failed), strings.Join(failed, ", "))
+	return fmt.Errorf("%d module(s) failed to link: %s", len(failed), strings.Join(failed, ", "))
 }
 
 func printInstallResult(result tui.ModuleResult) {
 	switch result.Status {
-	case "installed":
+	case "linked":
 		if result.Warning != "" {
 			fmt.Printf("done (%s)\n", result.Warning)
 		} else {

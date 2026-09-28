@@ -201,11 +201,11 @@ func (inst *Installer) InstallModule(mod config.Module, adopt bool) tui.ModuleRe
 		err := cmd.Run()
 		inst.send(tui.StepDoneMsg{Module: mod.Name, Step: "Post-install hook", Err: err})
 		if err != nil {
-			return tui.ModuleResult{Name: mod.Name, Status: "installed", Warning: "hook failed: " + err.Error()}
+			return tui.ModuleResult{Name: mod.Name, Status: "linked", Warning: "hook failed: " + err.Error()}
 		}
 	}
 
-	return tui.ModuleResult{Name: mod.Name, Status: "installed"}
+	return tui.ModuleResult{Name: mod.Name, Status: "linked"}
 }
 
 // manifest loads the bootstrap section of dotfiles.toml, returning a zero value

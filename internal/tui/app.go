@@ -67,7 +67,7 @@ func (m Model) updatePicker(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// runs in a SEPARATE program (see runModuleInstall) with its own
 		// progress model and producer goroutine. Quitting here returns control
 		// so that program can start. Advancing to ViewProgress instead would
-		// render "Installing dotfiles" and spin forever, because nothing in
+		// render "Linking modules" and spin forever, because nothing in
 		// this program ever sends AllDoneMsg.
 		return m, tea.Quit
 	}
