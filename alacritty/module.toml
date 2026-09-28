@@ -1,0 +1,3 @@
+name = "alacritty"
+description = "Alacritty terminal config matching Ghostty"
+os = ["darwin"]

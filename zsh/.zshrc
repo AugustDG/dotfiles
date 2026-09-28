@@ -38,7 +38,7 @@ alias gp='git pull'
 alias gs='git status'
 alias cdr='cd "$(git rev-parse --show-toplevel)"'
 alias codex='codex --dangerously-bypass-approvals-and-sandbox'
-alias claude='_ZO_DOCTOR=0 claude --model "claude-opus-5[1m]" --effort xhigh'
+alias claude='_ZO_DOCTOR=0 claude'
 alias po='env PATH="$NVM_DIR/versions/node/v22.22.0/bin:$PATH" pi'
 
 gpm() {
@@ -147,21 +147,6 @@ function y() { # press y to open yazi
 }
 # yazi end
 
-# commands
-use() {
-  case "$1" in
-    aws)
-      aws sso login --profile shared
-      aws sso login --profile personal
-      export AWS_PROFILE=shared
-      echo "AWS ready (shared + personal). Active: shared"
-      ;;
-    *)
-      echo "use: unknown target '$1'"
-      ;;
-  esac
-}
-
 # atuin
 eval "$(atuin init zsh)"
 
@@ -172,55 +157,5 @@ fi
 
 [[ -r "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env"
 
-# >>> hopper >>>
-# hopper zsh integration
-_h_cd_pick() {
-  local target
-  if (( $# > 0 )); then
-    target="$(command hopper query "$*" </dev/tty 2>/dev/tty)" || return
-  else
-    target="$(command hopper pick </dev/tty 2>/dev/tty)" || return
-  fi
-  target="${target//$'\r'/}"
-  target="${target##*$'\n'}"
-  [[ "$target" == /* ]] || return
-  [[ -n "$target" ]] && cd "$target"
-}
-
-h() {
-  case "$1" in
-    add|remove|list|query|recent|index|init|pick|help|-h|--help)
-      command hopper "$@"
-      ;;
-    "")
-      _h_cd_pick
-      ;;
-    *)
-      # If args do not match subcommands, treat them as pick filters.
-      _h_cd_pick "$@"
-      ;;
-  esac
-}
-
-ha() {
-  command hopper add "$@"
-}
-
-hr() {
-  command hopper remove "$@"
-}
-
-h_widget() {
-  local target
-  target="$(command hopper pick </dev/tty 2>/dev/tty)" || return
-  target="${target//$'\r'/}"
-  target="${target##*$'\n'}"
-  [[ "$target" == /* ]] || return
-  zle reset-prompt
-  [[ -n "$target" ]] || return
-  BUFFER="cd ${(q)target}"
-  zle accept-line
-}
-zle -N h_widget
-bindkey '^G' h_widget
-# <<< hopper <<<
+# ws
+eval "$(ws shell-init zsh)"

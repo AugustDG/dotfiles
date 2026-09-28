@@ -1,0 +1,18 @@
+---
+name: bp_viber_simple
+project_root: "/Users/augusto.pinheiro"
+windows:
+- viber:
+    layout: 3739,340x77,0,0{117x77,0,0[117x53,0,0,0,117x23,0,54,3],113x77,118,0[113x53,118,0,1,113x23,118,54,4],108x77,232,0[108x53,232,0,2,108x23,232,54,5]}
+    panes:
+    - cd /Users/augusto.pinheiro/projects/viber
+    - cd /Users/augusto.pinheiro/projects/viber
+    - cd /Users/augusto.pinheiro/.treehouse/viber-bd25b8/1/viber
+    - cd /Users/augusto.pinheiro/.treehouse/viber-bd25b8/1/viber
+    - cd /Users/augusto.pinheiro/.treehouse/viber-bd25b8/2/viber
+    - cd /Users/augusto.pinheiro/.treehouse/viber-bd25b8/2/viber
+- misc:
+    layout: e2f0,340x77,0,0{201x77,0,0,6,138x77,202,0,7}
+    panes:
+    - cd /Users/augusto.pinheiro
+    - cd /Users/augusto.pinheiro

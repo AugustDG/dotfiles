@@ -1,0 +1,5 @@
+# ws settings.
+
+# Layout for directories without a project file and for projects that don't
+# name one. Refers to layouts/<name>.yaml.
+default_layout: default

@@ -1,0 +1,34 @@
+# Match ghostty/Library/Application Support/com.mitchellh.ghostty/config.ghostty.
+[general]
+# For Ghostty's dark palette, replace tomorrow.toml with iterm2-default.toml.
+# Alacritty does not automatically select palettes by macOS appearance.
+import = ["~/.config/alacritty/themes/tomorrow.toml"]
+
+[env]
+PATH = "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin"
+
+[terminal.shell]
+program = "/bin/zsh"
+args = ["-c", 'exec /opt/homebrew/bin/tmux -f "$HOME/.config/tmux/tmux.conf" new-session -A -s main']
+
+[window]
+opacity = 0.95
+# Alacritty supports blur, but not Ghostty's configurable blur radius.
+blur = true
+option_as_alt = "Both"
+padding = { x = 2, y = 2 }
+
+[font]
+size = 13.0
+normal = { family = "JetBrainsMono Nerd Font", style = "ExtraLight" }
+italic = { family = "JetBrainsMono Nerd Font", style = "ExtraLight Italic" }
+
+[cursor]
+style = { shape = "Block", blinking = "On" }
+
+[keyboard]
+# Use tmux instead of creating terminal tabs/windows with these shortcuts.
+bindings = [
+  { key = "T", mods = "Command", action = "None" },
+  { key = "N", mods = "Command", action = "None" },
+]

@@ -1,0 +1,15 @@
+# The layout used when nothing else is named: one window with one pane.
+#
+# Windows split into columns and rows sized in percent, and any node can set
+# for_each: worktree to repeat once per worktree. For example:
+#
+#   windows:
+#     - name: code
+#       columns:
+#         - for_each: worktree
+#           rows:
+#             - size: 70%
+#               cmd: nvim
+#             - {}
+windows:
+  - name: main
