@@ -14,6 +14,7 @@ program = "/bin/zsh"
 args = ["-c", 'ws="$HOME/.local/bin/ws"; last=$("$ws" last 2>/dev/null) && "$ws" start "$last" || exec /bin/zsh -l']
 
 [window]
+decorations = "Buttonless"
 opacity = 0.95
 # Alacritty supports blur, but not Ghostty's configurable blur radius.
 blur = true
