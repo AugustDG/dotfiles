@@ -3,6 +3,7 @@ import {
 	type ExtensionAPI,
 	type ExtensionContext,
 	type KeybindingsManager,
+	type ReadonlyFooterDataProvider,
 } from "@earendil-works/pi-coding-agent";
 import type { Component, EditorTheme, TUI } from "@earendil-works/pi-tui";
 import { matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
@@ -197,6 +198,7 @@ class EmptyFooter implements Component {
 export default function poGreenUi(pi: ExtensionAPI) {
 	let activeTui: TUI | undefined;
 	let activeContext: ExtensionContext | undefined;
+	let footerData: ReadonlyFooterDataProvider | undefined;
 	let branch: string | undefined;
 	let isWorking = false;
 	let workingStartedAt: number | undefined;
@@ -281,7 +283,10 @@ export default function poGreenUi(pi: ExtensionAPI) {
 		ctx.ui.setWorkingIndicator({ frames: [] });
 		ctx.ui.setHiddenThinkingLabel("Thinking…");
 		ctx.ui.setToolsExpanded(false);
-		ctx.ui.setFooter(() => new EmptyFooter());
+		ctx.ui.setFooter((_tui, _theme, data) => {
+			footerData = data;
+			return new EmptyFooter();
+		});
 		ctx.ui.setTitle(`po · ${basename(ctx.cwd) || "workspace"}`);
 		await refreshBranch();
 
@@ -327,7 +332,9 @@ export default function poGreenUi(pi: ExtensionAPI) {
 					),
 				);
 				const separator = theme.fg("dim", " · ");
-				const modelStatus = ` ${sessionAccent(theme.bold(model))}${separator}${theme.fg("warning", thinking)} `;
+				const backgroundStatus = footerData?.getExtensionStatuses().get("background-tasks");
+				const taskStatus = backgroundStatus ? `${theme.fg("warning", backgroundStatus)}${separator}` : "";
+				const modelStatus = ` ${taskStatus}${sessionAccent(theme.bold(model))}${separator}${theme.fg("warning", thinking)} `;
 				const location = ` ${sessionAccent(formatContext(ctx))}${separator}${theme.fg("muted", formatPath(ctx.cwd))}${branch ? `${separator}${sessionAccent(branch)}` : ""} `;
 				lines[0] = fitBorder(working, "", width, sessionAccent);
 				lines[lines.length - 1] = fitBottomBorder(modelStatus, location, width, sessionAccent);
@@ -340,6 +347,7 @@ export default function poGreenUi(pi: ExtensionAPI) {
 
 	pi.on("session_shutdown", () => {
 		activeContext = undefined;
+		footerData = undefined;
 		stopSpinner();
 		activeTui = undefined;
 	});
