@@ -1,9 +1,9 @@
 {
-  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
-  "servers": {
+  "mcpServers": {
     "cloudflare-api": {
       "enabled": true,
-      "transport": "stdio",
+      "exposure": "deferred",
+      "timeout": 120,
       "command": "npx",
       "args": [
         "-y",
@@ -13,21 +13,19 @@
         "{\"scope\":\"user:read account:read offline_access\"}",
         "--auth-timeout",
         "120"
-      ],
-      "startupTimeoutMs": 120000
+      ]
     },
     "grafana": {
       "enabled": true,
-      "description": "Botpress Grafana dashboards, metrics, logs, and alerts",
-      "transport": "stdio",
+      "exposure": "deferred",
+      "timeout": 120,
       "command": "/Users/augusto.pinheiro/.pi/agent/bin/grafana-mcp",
-      "args": [],
-      "startupTimeoutMs": 60000
+      "args": []
     },
     "chrome-devtools": {
       "enabled": true,
-      "description": "Inspect, debug, and automate Chrome through DevTools.",
-      "transport": "stdio",
+      "exposure": "deferred",
+      "timeout": 120,
       "command": "npx",
       "args": [
         "chrome-devtools-mcp@latest"
@@ -35,26 +33,17 @@
     },
     "greptile": {
       "enabled": true,
-      "description": "Search codebases and access Greptile code-review context.",
-      "transport": "http",
+      "exposure": "deferred",
+      "timeout": 120,
       "url": "https://api.greptile.com/mcp",
       "headers": {
-        "Authorization": "$GREPTILE_MCP_AUTHORIZATION"
+        "Authorization": "${GREPTILE_MCP_AUTHORIZATION}"
       }
-    },
-    "repowise": {
-      "enabled": true,
-      "description": "Query the current repository's RepoWise codebase intelligence index.",
-      "transport": "stdio",
-      "command": "repowise",
-      "args": [
-        "mcp"
-      ]
     },
     "node_repl": {
       "enabled": true,
-      "description": "Use the Codex desktop Node REPL and its browser runtime.",
-      "transport": "stdio",
+      "exposure": "deferred",
+      "timeout": 120,
       "command": "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl",
       "args": [],
       "env": {
@@ -70,13 +59,12 @@
         "BROWSER_USE_CODEX_APP_BUILD_FLAVOR": "prod",
         "BROWSER_USE_CODEX_APP_VERSION": "26.715.61943",
         "CODEX_CLI_PATH": "/Applications/ChatGPT.app/Contents/Resources/codex"
-      },
-      "startupTimeoutMs": 120000
+      }
     },
     "linear": {
       "enabled": true,
-      "description": "Access Linear issues, projects, and workspace context through OAuth.",
-      "transport": "stdio",
+      "exposure": "deferred",
+      "timeout": 120,
       "command": "npx",
       "args": [
         "-y",
@@ -84,42 +72,37 @@
         "https://mcp.linear.app/mcp",
         "--auth-timeout",
         "120"
-      ],
-      "startupTimeoutMs": 120000
+      ]
     },
     "firefall": {
       "enabled": true,
-      "description": "Access the local Firefall development MCP server.",
-      "transport": "http",
+      "exposure": "deferred",
+      "timeout": 120,
       "url": "http://127.0.0.1:7767/mcp"
     },
     "vex": {
       "enabled": true,
-      "description": "Access the local Vex development MCP server.",
-      "transport": "http",
+      "exposure": "deferred",
+      "timeout": 120,
       "url": "http://127.0.0.1:3849/mcp"
     },
     "sauron-staging": {
       "enabled": true,
-      "description": "Access the Sauron staging environment.",
-      "transport": "http",
+      "exposure": "deferred",
+      "timeout": 120,
       "url": "https://sauron.botpress.dev/pat/palantir/mcp",
       "headers": {
-        "Authorization": "$SAURON_STAGING_MCP_AUTHORIZATION"
+        "Authorization": "${SAURON_STAGING_MCP_AUTHORIZATION}"
       }
     },
     "sauron-prod": {
       "enabled": true,
-      "description": "Access the Sauron production environment.",
-      "transport": "http",
+      "exposure": "deferred",
+      "timeout": 120,
       "url": "https://sauron.botpress.cloud/pat/mcp",
       "headers": {
-        "Authorization": "$SAURON_PROD_MCP_AUTHORIZATION"
+        "Authorization": "${SAURON_PROD_MCP_AUTHORIZATION}"
       }
     }
-  },
-  "defaults": {
-    "startupTimeoutMs": 15000,
-    "toolTimeoutMs": 120000
   }
 }

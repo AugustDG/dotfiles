@@ -1,6 +1,3 @@
 name = "pi"
 description = "Pi coding-agent settings, themes, MCP configuration, and extensions"
 os = ["darwin", "linux"]
-
-[hooks]
-post_install = "cd \"$HOME/.pi/agent/extensions/mcp\" && if command -v bun >/dev/null 2>&1; then bun install --frozen-lockfile; else npm install; fi"
