@@ -17,8 +17,8 @@ export default function questions(pi: ExtensionAPI) {
 		if (ctx.mode !== "tui") return;
 		const items = [...pending.values()];
 		ctx.ui.setWidget(WIDGET, items.length ? [
-			`Po has ${items.length} pending question(s) — /answer to respond; /answer <id> <text>`,
-			...items.slice(0, 3).map((q) => `[${q.id}] ${q.question}`),
+			`Po has ${items.length} pending question(s) — /answer to respond`,
+			...items.slice(0, 3).map((q) => `▪ ${q.question}`),
 			...(items.length > 3 ? [`…and ${items.length - 3} more`] : []),
 		] : undefined);
 	}

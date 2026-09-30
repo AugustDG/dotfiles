@@ -5,7 +5,7 @@ import {
 	type KeybindingsManager,
 } from "@earendil-works/pi-coding-agent";
 import type { Component, EditorTheme, TUI } from "@earendil-works/pi-tui";
-import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { basename } from "node:path";
 import { getPoName } from "../session-messages/index";
 
@@ -289,6 +289,17 @@ export default function poGreenUi(pi: ExtensionAPI) {
 			constructor(tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager) {
 				super(tui, theme, keybindings, { paddingX: 2 });
 				activeTui = tui;
+			}
+
+			handleInput(data: string): void {
+				if (matchesKey(data, "up") && this.getText().length === 0 && !this.isShowingAutocomplete() && ctx.hasPendingMessages()) {
+					const dequeue = this.actionHandlers.get("app.message.dequeue");
+					if (dequeue) {
+						dequeue();
+						return;
+					}
+				}
+				super.handleInput(data);
 			}
 
 			render(width: number): string[] {
