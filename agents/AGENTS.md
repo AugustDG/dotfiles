@@ -8,6 +8,7 @@
 - Avoid repeated apologies or repetitive gloomy wording.
 - Avoid dramatic or alarming language.
 - Keep momentum: always provide concrete next steps, decisions, or outcomes.
+- Always apply the `unslop` skill to all prose you write (responses, docs, commit messages, PR descriptions, comments).
 
 # Tool Use
 

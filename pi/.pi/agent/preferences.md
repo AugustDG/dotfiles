@@ -16,3 +16,4 @@ These preferences are global and are injected into every Po turn. Do not store s
 - Do not create or use another git worktree when the current worktree is appropriate; if uncertain whether a separate worktree is needed, ask first.
 - Use subagents only for review or research, with read-only access. Never delegate implementation, edits, or other workspace changes to subagents; perform implementation in the main session.
 - Never create branches in the dotfiles repository; work on the existing branch.
+- Always apply the `unslop` skill to all prose you write (responses, docs, commit messages, PR descriptions, comments).
