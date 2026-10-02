@@ -10,13 +10,13 @@ This directory is linked from `~/.pi/agent/extensions/background-tasks`. Run `/r
 
 - `task_start({ command, cwd?, label?, notify? })`: start immediately and return an ID. `notify` defaults to `true`; set it to `false` for servers and log streams.
 - `task_list({})`: show this session's active jobs and jobs finished within the last minute. Older jobs remain accessible by ID.
-- `task_output({ id, tail_chars? })`: inspect status and the latest output. Default 4,000 characters, maximum 16,000.
+- `task_output({ id, tail_chars? })`: inspect status and the latest output. Default snippet: 500 characters, up to 8 lines. Request a larger tail explicitly, up to 16,000 characters.
 - `task_wait({ id, timeout_seconds? })`: wait at most 60 seconds (default 10). Timeout returns current status. Cancelling the wait does **not** stop the job.
 - `task_stop({ id })`: terminate the process group, first with SIGTERM, then SIGKILL after one second if needed.
 
 Commands run through `/bin/bash -c`, with inherited environment, the session working directory by default, and no stdin. Relative `cwd` values resolve against the session directory. Use foreground commands: do not add `&`, daemonize, or detach children. Commands needing interactive input/TTY are not supported.
 
-Finite jobs send one completion message with status, exit code, and output tail; the message queues a follow-up when the agent is busy or wakes it when idle. `notify: false` suppresses that message. Starting jobs or reading their output does not send notifications. Shutdown suppresses completion turns.
+Task displays show a one-line command snippet (up to 160 characters), a short output snippet, and exit status plus readable duration, without a directory line. Finite jobs send one completion message with this compact summary; the message queues a follow-up when the agent is busy or wakes it when idle. `notify: false` suppresses that message. Starting jobs or reading their output does not send notifications. Shutdown suppresses completion turns.
 
 ## User controls
 

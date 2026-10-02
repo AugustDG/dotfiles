@@ -47,6 +47,8 @@ test("extension registers working tools, persists results, and emits one complet
 	assert.equal(waited.details.status, "completed");
 	assert.equal(waited.details.output, "success");
 	assert.equal(h.messages.length, 1);
+	assert.ok(!h.messages[0].message.content.includes("Directory:"));
+	assert.ok(h.messages[0].message.content.includes("Exit: 0 · Duration:"));
 	assert.deepEqual(h.messages[0].options, { deliverAs: "followUp", triggerTurn: true });
 	assert.equal(h.entries.at(-1).data.status, "completed");
 	assert.equal((await h.call("task_list", {})).details.tasks.length, 1);
@@ -95,6 +97,23 @@ test("old completed jobs are hidden from tool and UI lists but still readable by
 	h.ctx.ui.select = async () => { throw new Error("Old task should not be selectable"); };
 	await h.commands.get("tasks").handler("", h.ctx);
 	assert.deepEqual(notices, ["No background tasks."]);
+});
+
+test("output defaults to a compact snippet while explicit larger tails stay available", async (t) => {
+	const record = {
+		id: "large", command: `echo ${"x".repeat(300)}`, cwd: process.cwd(), label: "large", notify: false,
+		status: "completed", startedAt: Date.now() - 10_000, endedAt: Date.now(), exitCode: 0,
+		output: "a".repeat(2000), droppedChars: 0,
+	};
+	const h = setup([{ type: "custom", customType: "po-background-task", data: record }]);
+	t.after(h.shutdown);
+	const snippet = await h.call("task_output", { id: record.id });
+	assert.equal(snippet.details.output.length, 500);
+	assert.ok(snippet.content[0].text.includes("Output (snippet)"));
+	assert.ok(!snippet.content[0].text.includes(record.command));
+	assert.ok(!snippet.content[0].text.includes("Directory:"));
+	const larger = await h.call("task_output", { id: record.id, tail_chars: 4000 });
+	assert.equal(larger.details.output.length, 2000);
 });
 
 test("bottom-bar status uses short task counts and clears at zero", async (t) => {

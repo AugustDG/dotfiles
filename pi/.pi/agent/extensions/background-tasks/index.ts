@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { isAbsolute, resolve } from "node:path";
-import { cleanOutput, describeTask, TaskManager, type TaskRecord } from "./manager.js";
+import { cleanOutput, commandSnippet, describeTask, OUTPUT_SNIPPET_CHARS, TaskManager, type TaskRecord } from "./manager.js";
 
 const ENTRY = "po-background-task";
 const MESSAGE = "po-background-task-completion";
@@ -25,7 +25,7 @@ export default function backgroundTasks(pi: ExtensionAPI) {
 		context = ctx;
 		return manager;
 	};
-	const result = (record: TaskRecord, tailChars = 4000) => ({
+	const result = (record: TaskRecord, tailChars = OUTPUT_SNIPPET_CHARS) => ({
 		content: [{ type: "text" as const, text: describeTask(record, tailChars) }],
 		details: { ...record, output: tailChars > 0 ? cleanOutput(record.output.slice(-tailChars)) : "" },
 	});
@@ -76,6 +76,9 @@ export default function backgroundTasks(pi: ExtensionAPI) {
 			notify: Type.Optional(Type.Boolean({ description: "Send a completion event and wake the agent. Default true; use false for long-running servers." })),
 		}),
 		executionMode: "sequential",
+		renderCall(params, theme) {
+			return new Text(`${theme.fg("toolTitle", theme.bold("task_start"))} ${theme.fg("muted", commandSnippet(params.command ?? ""))}`, 0, 0);
+		},
 		async execute(_id, params, signal, _update, ctx) {
 			if (signal?.aborted) throw new Error("Task start cancelled.");
 			const tasks = getManager(ctx);
@@ -99,9 +102,9 @@ export default function backgroundTasks(pi: ExtensionAPI) {
 		name: "task_output", label: "Read background task output",
 		description: "Read a bounded tail of combined stdout/stderr and the current status of a managed background task.",
 		parameters: Type.Object({ ...IdParams.properties,
-			tail_chars: Type.Optional(Type.Integer({ minimum: 1, maximum: 16000, description: "Tail size; default 4000, maximum 16000" })) }),
+			tail_chars: Type.Optional(Type.Integer({ minimum: 1, maximum: 16000, description: "Tail size; default 500-character snippet (up to 8 lines), maximum 16000" })) }),
 		async execute(_id, params, _signal, _update, ctx) {
-			return result(getManager(ctx).get(params.id), params.tail_chars ?? 4000);
+			return result(getManager(ctx).get(params.id), params.tail_chars ?? OUTPUT_SNIPPET_CHARS);
 		},
 	});
 	pi.registerTool({

@@ -26,6 +26,7 @@ interface LiveTask {
 	killTimer?: ReturnType<typeof setTimeout>;
 }
 export const OUTPUT_LIMIT = 256 * 1024;
+export const OUTPUT_SNIPPET_CHARS = 500;
 const MAX_TASKS = 100;
 const MAX_RUNNING = 8;
 
@@ -164,13 +165,30 @@ export class TaskManager {
 	}
 }
 
-export function describeTask(record: TaskRecord, tailChars = 4000): string {
-	const tail = tailChars > 0 ? cleanOutput(record.output.slice(-tailChars)) : "";
+export function commandSnippet(command: string): string {
+	const text = cleanOutput(command).replace(/\s+/g, " ").trim();
+	return text.length > 160 ? `${text.slice(0, 159)}…` : text;
+}
+
+export function formatTaskDuration(milliseconds: number): string {
+	const ms = Math.max(0, milliseconds);
+	if (ms < 1000) return `${Math.round(ms)}ms`;
+	if (ms < 60_000) return `${Math.round(ms / 100) / 10}s`;
+	return `${Math.floor(ms / 60_000)}m ${Math.floor((ms % 60_000) / 1000)}s`;
+}
+
+export function describeTask(record: TaskRecord, tailChars = OUTPUT_SNIPPET_CHARS): string {
+	let tail = tailChars > 0 ? cleanOutput(record.output.slice(-tailChars)).trimEnd() : "";
+	let truncated = record.droppedChars > 0 || record.output.length > tailChars;
+	if (tailChars <= OUTPUT_SNIPPET_CHARS) {
+		const lines = tail.split("\n");
+		if (lines.length > 8) { tail = lines.slice(-8).join("\n"); truncated = true; }
+	}
+	const duration = formatTaskDuration((record.endedAt ?? Date.now()) - record.startedAt);
 	return [
 		`${record.id} · ${cleanOutput(record.label)} · ${record.status}`,
-		`Command: ${cleanOutput(record.command)}\nDirectory: ${cleanOutput(record.cwd)}`,
-		record.endedAt ? `Exit: ${record.exitCode ?? record.signal ?? "unknown"} · ${record.endedAt - record.startedAt}ms` : "",
-		record.droppedChars || record.output.length > tailChars ? "Output truncated (bounded tail only)." : "",
-		tail ? `--- output (stdout + stderr) ---\n${tail}` : "(no output)",
+		`Command: ${commandSnippet(record.command)}`,
+		`${record.endedAt !== undefined ? `Exit: ${record.exitCode ?? record.signal ?? "unknown"} · ` : ""}Duration: ${duration}`,
+		tailChars > 0 ? (tail ? `Output${truncated ? " (snippet)" : ""}:\n${truncated ? "…\n" : ""}${tail}` : "Output: (none)") : "",
 	].filter(Boolean).join("\n");
 }

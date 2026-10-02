@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { cleanOutput, describeTask, OUTPUT_LIMIT, TaskManager, type TaskRecord } from "./manager.ts";
+import { cleanOutput, commandSnippet, describeTask, formatTaskDuration, OUTPUT_LIMIT, TaskManager, type TaskRecord } from "./manager.ts";
 
 const cwd = process.cwd();
 async function finished(manager: TaskManager, id: string) {
@@ -38,9 +38,34 @@ test("bounds output and strips terminal controls", async (t) => {
 	assert.equal(task.output.length, OUTPUT_LIMIT);
 	assert.ok(task.droppedChars >= 10000);
 	assert.ok(task.output.endsWith("END"));
-	assert.ok(describeTask(task, 10).includes("Output truncated"));
-	assert.ok(!describeTask(task, 0).includes("--- output"));
+	assert.ok(describeTask(task, 10).includes("Output (snippet)"));
+	assert.ok(!describeTask(task, 0).includes("Output:"));
 	assert.equal(cleanOutput("\x1b[31mred\x1b[0m\x1b]52;c;bad\x07\x00"), "red");
+});
+
+test("task descriptions use command/output snippets, exit and duration, without directory", () => {
+	const record: TaskRecord = {
+		id: "snippet", command: `printf '${"x".repeat(250)}'\n; echo done`, cwd: "/private/directory",
+		label: "test", notify: false, status: "completed", startedAt: 1000, endedAt: 11_017,
+		exitCode: 0, output: Array.from({ length: 30 }, (_, i) => `line ${i}`).join("\n"), droppedChars: 0,
+	};
+	const text = describeTask(record);
+	assert.ok(!text.includes("Directory:"));
+	assert.ok(!text.includes(record.cwd));
+	assert.ok(text.includes("Exit: 0 · Duration: 10s"));
+	assert.equal(text.split("\n").find((line) => line.startsWith("Command: "))!.slice(9).length, 160);
+	assert.ok(text.includes("Output (snippet):\n…\nline 22"));
+	assert.ok(!text.includes("\nline 21\n"));
+	assert.ok(text.endsWith("line 29"));
+	assert.ok(describeTask(record, 16000).includes("\nline 0\n"));
+	assert.equal(commandSnippet("echo a\n\t; echo b"), "echo a ; echo b");
+	assert.equal(formatTaskDuration(45), "45ms");
+	assert.equal(formatTaskDuration(1250), "1.3s");
+	assert.equal(formatTaskDuration(62_000), "1m 2s");
+	assert.ok(describeTask({ ...record, exitCode: null, signal: "SIGTERM" }).includes("Exit: SIGTERM"));
+	const longOutput = describeTask({ ...record, output: "y".repeat(2000) });
+	assert.ok(longOutput.endsWith("y".repeat(500)));
+	assert.ok(!longOutput.endsWith("y".repeat(501)));
 });
 
 test("timeout and cancellation do not terminate the job", async (t) => {
