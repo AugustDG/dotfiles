@@ -4,7 +4,7 @@
         https://github.com/marlonrichert/zsh-snap.git ~/.plugins/znap
 source ~/.plugins/znap/znap.zsh  # Start Znap
 
-# Custom completion functions (treehouse, no-mistakes, …) live here. Znap defers
+# Custom completion functions (treehouse, …) live here. Znap defers
 # compinit to the first prompt, so this dir just needs to be on fpath before then.
 fpath=(~/.zsh/completions(N) $fpath)
 
@@ -33,7 +33,6 @@ export EDITOR=nvim
 # Aliases
 alias cd='z'
 alias th='treehouse'
-alias no='no-mistakes'
 alias gp='git pull'
 alias gs='git status'
 alias cdr='cd "$(git rev-parse --show-toplevel)"'
@@ -125,7 +124,6 @@ if (( $+functions[compdef] )); then
   compdef _git gs=git-status
   compdef _git gagc=git-add
   compdef _treehouse th
-  compdef _no-mistakes no
 fi
 
 
