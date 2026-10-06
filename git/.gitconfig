@@ -9,3 +9,7 @@
 	helper = !/opt/homebrew/bin/gh auth git-credential
 [safe]
 	directory = /home/augus/
+[rerere]
+	enabled = true
+[push]
+	autoSetupRemote = true

@@ -20,12 +20,6 @@ fi
 # --- Editor ---
 export EDITOR=nvim
 
-# --- nvm (installed via Homebrew) ---
-export NVM_DIR="$HOME/.nvm"
-if [[ -n "${HOMEBREW_PREFIX:-}" && -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ]]; then
-  source "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
-fi
-
 # --- atuin PATH (the `atuin init zsh` call lives in .zshrc) ---
 [[ -r "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env"
 

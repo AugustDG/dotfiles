@@ -15,7 +15,7 @@ global_brew = [
   "atuin",
   "jandedobbeleer/oh-my-posh/oh-my-posh",
   "oven-sh/bun/bun",
-  "nvm",
+  "mise",
   "pnpm",
   "node",
   "ripgrep",

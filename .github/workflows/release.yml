@@ -4,6 +4,13 @@ on:
   push:
     branches: [master]
     tags: ["v*"]
+    # config-only syncs don't change the CLI; tag pushes ignore this filter
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/release.yml"
 
 permissions:
   contents: write

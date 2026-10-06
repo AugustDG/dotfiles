@@ -5,7 +5,7 @@ var GlobalBrewPackages = []string{
 	"atuin",
 	"jandedobbeleer/oh-my-posh/oh-my-posh",
 	"oven-sh/bun/bun",
-	"nvm",
+	"mise",
 	"pnpm",
 	"node",
 	"ripgrep",

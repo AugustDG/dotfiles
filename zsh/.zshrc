@@ -38,7 +38,8 @@ alias gs='git status'
 alias cdr='cd "$(git rev-parse --show-toplevel)"'
 alias codex='codex --dangerously-bypass-approvals-and-sandbox'
 alias claude='_ZO_DOCTOR=0 claude'
-alias po='env PATH="$NVM_DIR/versions/node/v22.22.0/bin:$PATH" pi'
+# pi runs on node 22 even in projects where mise pins another version
+alias po='mise exec node@22.22.0 -- pi'
 
 gpm() {
   (git checkout master || git checkout main) && git pull
@@ -127,10 +128,6 @@ if (( $+functions[compdef] )); then
 fi
 
 
-# nvm
-export NVM_DIR="$HOME/.nvm"
-[[ -n "${HOMEBREW_PREFIX:-}" && -s "$HOMEBREW_PREFIX/opt/nvm/nvm.sh" ]] && source "$HOMEBREW_PREFIX/opt/nvm/nvm.sh"
-# nvm end
 
 # bun completions
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
