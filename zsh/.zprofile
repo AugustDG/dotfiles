@@ -29,10 +29,6 @@ export EDITOR=nvim
 # --- Machine-local overrides / secrets (never tracked) ---
 [[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
 
-# >>> Codex installer >>>
-export PATH="/Users/augusto.pinheiro/.local/bin:$PATH"
-# <<< Codex installer <<<
-
 # Added by OrbStack: command-line tools and integration
 # This won't be added again if you remove it.
 source ~/.orbstack/shell/init.zsh 2>/dev/null || :
