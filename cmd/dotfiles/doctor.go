@@ -148,10 +148,10 @@ func localBinCheck() tui.Check {
 }
 
 func localRcCheck(homeDir string) tui.Check {
-	if _, err := os.Stat(filepath.Join(homeDir, ".zshrc.local")); err == nil {
-		return tui.Check{Name: "~/.zshrc.local", Level: tui.CheckOK, Detail: "present"}
+	if _, err := os.Stat(filepath.Join(homeDir, ".zprofile.local")); err == nil {
+		return tui.Check{Name: "~/.zprofile.local", Level: tui.CheckOK, Detail: "present"}
 	}
-	return tui.Check{Name: "~/.zshrc.local", Level: tui.CheckWarn,
+	return tui.Check{Name: "~/.zprofile.local", Level: tui.CheckWarn,
 		Detail: "missing (machine-local secrets go here)"}
 }
 

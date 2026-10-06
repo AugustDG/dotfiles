@@ -140,13 +140,18 @@ func (inst *Installer) RunBootstrap() error {
 		return backupConflicts(inst.homeDir, orDefault(inst.manifest().BackupTargets, BackupTargets))
 	})
 
-	_ = inst.bootstrapStep("Create ~/.zshrc.local", func() error {
-		localrc := filepath.Join(inst.homeDir, ".zshrc.local")
-		if _, err := os.Stat(localrc); err == nil {
-			return nil
-		}
-		return os.WriteFile(localrc, []byte(ZshrcLocalTemplate), 0o600)
-	})
+	for _, local := range []struct{ name, template string }{
+		{".zprofile.local", ZprofileLocalTemplate},
+		{".zshrc.local", ZshrcLocalTemplate},
+	} {
+		_ = inst.bootstrapStep("Create ~/"+local.name, func() error {
+			path := filepath.Join(inst.homeDir, local.name)
+			if _, err := os.Stat(path); err == nil {
+				return nil
+			}
+			return os.WriteFile(path, []byte(local.template), 0o600)
+		})
+	}
 
 	return nil
 }

@@ -34,10 +34,14 @@ var BackupTargets = []string{
 	".gitconfig",
 }
 
-var ZshrcLocalTemplate = `# Machine-local overrides. Not tracked by dotfiles.
-# Fill in whichever are relevant to this machine.
+var ZprofileLocalTemplate = `# Machine-local exports and secrets. Not tracked by dotfiles.
+# Sourced from .zprofile, once per login shell.
 
 # export CLOUD_API_ENDPOINT=https://api.botpress.cloud
 # export CLOUD_PAT=bp_pat_xxxxxxxxxxxxxxxx
 # export CLOUD_BOT_ID=xxxxxxxxxxxxxxxxxxx
+`
+
+var ZshrcLocalTemplate = `# Machine-local interactive setup (aliases, functions). Not tracked by dotfiles.
+# Sourced from .zshrc; exports and secrets go in ~/.zprofile.local.
 `

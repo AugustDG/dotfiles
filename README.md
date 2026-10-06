@@ -142,9 +142,13 @@ bootstrap works before the repo is even cloned. Edit it to change the toolchain.
 
 ## Machine-local secrets
 
-`.zprofile` sources `~/.zshrc.local` if it exists. Put machine-specific exports
-there (e.g. `CLOUD_PAT`) — the file is never tracked. `dotfiles doctor` warns if
-it's missing.
+Two untracked files hold what differs per machine:
+
+- `~/.zprofile.local`, sourced from `.zprofile`: exports and secrets (e.g.
+  `CLOUD_PAT`). `dotfiles doctor` warns if it's missing.
+- `~/.zshrc.local`, sourced from `.zshrc`: aliases and functions.
+
+`dotfiles init` creates both if they don't exist.
 
 The `pi` module tracks portable settings and extension sources, but intentionally
 excludes `auth.json`, sessions, session-message runtime data, model caches, and

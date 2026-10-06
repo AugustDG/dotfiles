@@ -27,9 +27,6 @@ setopt HIST_IGNORE_ALL_DUPS   # remove older duplicate when a new one is added
 setopt HIST_REDUCE_BLANKS     # trim whitespace
 setopt HIST_IGNORE_SPACE      # prefix with space to keep a command out of history
 
-# Editor
-export EDITOR=nvim
-
 # Aliases
 alias cd='z'
 alias th='treehouse'
@@ -150,7 +147,12 @@ if command -v zoxide >/dev/null 2>&1; then
   eval "$(zoxide init zsh)"
 fi
 
-[[ -r "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env"
+# mise: per-directory tool versions, refreshed before each prompt
+command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"
+
+# Machine-local aliases and functions (never tracked); exports live in
+# ~/.zprofile.local
+[[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
 
 # ws
 eval "$(ws shell-init zsh)"

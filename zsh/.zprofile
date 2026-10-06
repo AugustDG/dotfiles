@@ -23,12 +23,16 @@ export EDITOR=nvim
 # --- atuin PATH (the `atuin init zsh` call lives in .zshrc) ---
 [[ -r "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env"
 
-# --- Misc user-local env (e.g. uv-installed shims) ---
-[[ -r "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env"
+# --- mise: shims serve scripts and `zsh -c`; .zshrc's activate takes over at a prompt ---
+command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh --shims)"
 
-# --- Machine-local overrides / secrets (never tracked) ---
-[[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+# --- Machine-local exports and secrets (never tracked) ---
+[[ -r "$HOME/.zprofile.local" ]] && source "$HOME/.zprofile.local"
 
 # Added by OrbStack: command-line tools and integration
 # This won't be added again if you remove it.
 source ~/.orbstack/shell/init.zsh 2>/dev/null || :
+
+# --- ~/.local/bin first: /etc/zprofile's path_helper put .zshenv's entry behind
+# the system dirs ---
+path=("$HOME/.local/bin" ${path:#$HOME/.local/bin})
