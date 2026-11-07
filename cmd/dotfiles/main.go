@@ -29,7 +29,7 @@ func newRootCmd() *cobra.Command {
 	cobra.EnableCommandSorting = false
 	addGroup(cmd, "setup", "Set up this machine:", initCmd(), doctorCmd(), selfUpdateCmd())
 	addGroup(cmd, "modules", "Link modules into $HOME:", linkCmd(), unlinkCmd(), statusCmd(), depsCmd(), cleanCmd())
-	addGroup(cmd, "repo", "Sync the repo:", pullCmd(), updateCmd(), syncCmd())
+	addGroup(cmd, "repo", "Sync the repo:", pullCmd(), bumpCmd(), syncCmd())
 	addGroup(cmd, "author", "Author modules:", addCmd(), adoptCmd(), ejectCmd(), editCmd())
 
 	return cmd

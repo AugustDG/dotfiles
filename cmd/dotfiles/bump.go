@@ -11,18 +11,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func updateCmd() *cobra.Command {
+func bumpCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:               "update [modules...]",
-		Short:             "Pull submodules to upstream latest and re-stow",
+		Use:   "bump [modules...]",
+		Short: "Advance submodules to their upstream latest and re-stow",
+		Long: "Moves each submodule to the newest commit on its own upstream, past the\n" +
+			"commit the dotfiles repo has recorded, then re-stows it. The repo then\n" +
+			"shows the new submodule pointers as changes; run `dotfiles sync` to record them.\n" +
+			"To match what the repo already records instead, use `dotfiles pull`.",
 		ValidArgsFunction: moduleNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpdate(args)
+			return runBump(args)
 		},
 	}
 }
 
-func runUpdate(args []string) error {
+func runBump(args []string) error {
 	dotfilesDir := platform.DotfilesDir()
 	homeDir := platform.HomeDir()
 
@@ -43,12 +47,12 @@ func runUpdate(args []string) error {
 
 	var errs []error
 	for _, mod := range targets {
-		errs = append(errs, updateModule(dotfilesDir, homeDir, mod))
+		errs = append(errs, bumpModule(dotfilesDir, homeDir, mod))
 	}
 	return firstError(errs)
 }
 
-func updateModule(dotfilesDir, homeDir string, mod config.Module) error {
+func bumpModule(dotfilesDir, homeDir string, mod config.Module) error {
 	if !mod.HasSubmodule {
 		fmt.Printf("%-12s skipped (no submodule)\n", mod.Name)
 		return nil

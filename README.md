@@ -55,15 +55,15 @@ dotfiles clean --dry-run           # Preview what would be removed
 ```bash
 dotfiles pull                      # git pull + sync submodules + re-stow linked modules
 dotfiles pull nvim tmux            # …limited to specific modules
-dotfiles update                    # Bump submodules to their upstream latest, re-stow
-dotfiles update tmux               # …for specific modules
+dotfiles bump                      # Advance submodules to their upstream latest, re-stow
+dotfiles bump tmux                 # …for specific modules
 dotfiles sync                      # Commit & push local changes, submodules first
 dotfiles sync tmux -m "msg"        # Sync specific modules with a commit message
 dotfiles sync --dry-run            # Show what would be committed and pushed
 ```
 
 `pull` fetches the repo from origin and brings submodules to the recorded
-commits; `update` advances submodules to their own upstream HEAD. Both re-stow
+commits; `bump` advances submodules to their own upstream HEAD. Both re-stow
 linked modules so new files get linked.
 
 ### Author modules
@@ -90,7 +90,7 @@ dotfiles completion zsh > "${fpath[1]}/_dotfiles"   # zsh (then restart your she
 dotfiles completion bash | sudo tee /etc/bash_completion.d/dotfiles
 ```
 
-Module-name arguments (`link`, `unlink`, `eject`, `update`, `pull`,
+Module-name arguments (`link`, `unlink`, `eject`, `bump`, `pull`,
 `sync`, `deps`, `adopt`, `edit`) complete dynamically from the modules in the
 repo. znap caches zsh's completion list in `~/.cache/zsh/compdump`, so after
 adding a new completion file run `rm ~/.cache/zsh/compdump*` before restarting

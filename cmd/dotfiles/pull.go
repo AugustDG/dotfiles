@@ -15,10 +15,12 @@ import (
 func pullCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pull [modules...]",
-		Short: "Pull the latest dotfiles, sync submodules, and re-stow",
+		Short: "Pull the dotfiles repo, check out recorded submodule commits, and re-stow",
 		Long: "Fast-forwards the dotfiles repo from origin, updates every submodule to\n" +
 			"the recorded commit, then re-stows the affected modules so new files are\n" +
-			"linked. With no arguments, re-stows all currently-installed modules.",
+			"linked. With no arguments, re-stows all currently-installed modules.\n" +
+			"Submodules land on the commits the repo records, not their upstream latest;\n" +
+			"use `dotfiles bump` for that.",
 		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: moduleNameCompletion,
 		RunE: func(cmd *cobra.Command, args []string) error {
