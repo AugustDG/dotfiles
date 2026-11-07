@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.0.3",
+  "lastChangelogVersion": "1.5.0",
   "theme": "claude-forest",
   "quietStartup": true,
   "hideThinkingBlock": true,
@@ -17,5 +17,9 @@
   "tuiMode": "fullscreen",
   "packages": [
     "npm:pi-memory"
-  ]
+  ],
+  "extensionChangelogVersions": {
+    "{\"source\":\"npm:pi-memory\",\"scope\":\"user\"}": "0.4.2"
+  },
+  "deviceId": "fb5e2d63-59d7-4510-8473-7753b240ab4f"
 }

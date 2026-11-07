@@ -1,3 +1,6 @@
 name = "pi"
 description = "Pi coding-agent settings, themes, MCP configuration, and extensions"
 os = ["darwin", "linux"]
+
+[deps]
+brew = ["pi-coding-agent"]
