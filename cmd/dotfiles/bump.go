@@ -1,13 +1,14 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"path/filepath"
 
 	"github.com/AugustDG/dotfiles/internal/config"
 	gitops "github.com/AugustDG/dotfiles/internal/git"
 	"github.com/AugustDG/dotfiles/internal/platform"
 	"github.com/AugustDG/dotfiles/internal/stow"
+	"github.com/AugustDG/dotfiles/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -42,39 +43,51 @@ func runBump(args []string) error {
 			return err
 		}
 	} else {
-		targets = compatibleModules(modules, platform.DetectOS())
+		for _, mod := range compatibleModules(modules, platform.DetectOS()) {
+			if mod.HasSubmodule {
+				targets = append(targets, mod)
+			}
+		}
 	}
 
-	var errs []error
+	var tasks []tui.Task
 	for _, mod := range targets {
-		errs = append(errs, bumpModule(dotfilesDir, homeDir, mod))
+		tasks = append(tasks, bumpTasks(dotfilesDir, homeDir, mod)...)
+	}
+	if len(tasks) == 0 {
+		tui.Info("No modules with submodules to bump.")
+		return nil
+	}
+
+	errs, err := tui.RunTasks("Bumping submodules", tasks)
+	if err != nil {
+		return err
 	}
 	return firstError(errs)
 }
 
-func bumpModule(dotfilesDir, homeDir string, mod config.Module) error {
-	if !mod.HasSubmodule {
-		fmt.Printf("%-12s skipped (no submodule)\n", mod.Name)
-		return nil
+func bumpTasks(dotfilesDir, homeDir string, mod config.Module) []tui.Task {
+	if !mod.HasSubmodule || len(mod.SubmodulePaths) == 0 {
+		return []tui.Task{{
+			Group: mod.Name,
+			Title: "Pull upstream",
+			Run:   func(context.Context) error { return tui.Skipped("no submodule") },
+		}}
 	}
-	if len(mod.SubmodulePaths) == 0 {
-		return nil
+	return []tui.Task{
+		{
+			Group: mod.Name,
+			Title: "Pull upstream",
+			Run: func(context.Context) error {
+				return gitops.PullSubmodule(absSubmodulePath(dotfilesDir, mod.SubmodulePaths[0]))
+			},
+		},
+		{
+			Group: mod.Name,
+			Title: "Stow",
+			Run:   func(context.Context) error { return stow.Stow(dotfilesDir, mod.Name, homeDir) },
+		},
 	}
-
-	fmt.Printf("%-12s pulling... ", mod.Name)
-	if err := gitops.PullSubmodule(absSubmodulePath(dotfilesDir, mod.SubmodulePaths[0])); err != nil {
-		fmt.Printf("failed: %s\n", err)
-		return fmt.Errorf("%s: %w", mod.Name, err)
-	}
-
-	fmt.Print("stowing... ")
-	if err := stow.Stow(dotfilesDir, mod.Name, homeDir); err != nil {
-		fmt.Printf("failed: %s\n", err)
-		return fmt.Errorf("%s: %w", mod.Name, err)
-	}
-
-	fmt.Println("done")
-	return nil
 }
 
 func absSubmodulePath(dotfilesDir, submodulePath string) string {

@@ -6,6 +6,7 @@ import (
 	"github.com/AugustDG/dotfiles/internal/config"
 	"github.com/AugustDG/dotfiles/internal/platform"
 	"github.com/AugustDG/dotfiles/internal/stow"
+	"github.com/AugustDG/dotfiles/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -41,25 +42,25 @@ func runClean(dryRun bool) error {
 	dangling := stow.FindDangling(dotfilesDir, homeDir, roots)
 
 	if len(dangling) == 0 {
-		fmt.Println("No dangling links found.")
+		tui.OK("No dangling links.")
 		return nil
 	}
 
 	if dryRun {
-		fmt.Printf("Would remove %d dangling link(s):\n", len(dangling))
+		tui.Info("Would remove %d dangling link(s):", len(dangling))
 		for _, l := range dangling {
-			fmt.Printf("  %s -> %s\n", l.Path, l.Target)
+			tui.Item("%s → %s", l.Path, l.Target)
 		}
 		return nil
 	}
 
 	removed, err := stow.RemoveDangling(dangling)
 	for _, p := range removed {
-		fmt.Printf("removed %s\n", p)
+		tui.Item("removed %s", p)
 	}
 	if err != nil {
 		return fmt.Errorf("removed %d of %d before error: %w", len(removed), len(dangling), err)
 	}
-	fmt.Printf("Removed %d dangling link(s).\n", len(removed))
+	tui.OK("Removed %d dangling link(s)", len(removed))
 	return nil
 }

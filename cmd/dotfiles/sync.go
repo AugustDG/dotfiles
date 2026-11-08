@@ -9,6 +9,7 @@ import (
 	"github.com/AugustDG/dotfiles/internal/config"
 	gitops "github.com/AugustDG/dotfiles/internal/git"
 	"github.com/AugustDG/dotfiles/internal/platform"
+	"github.com/AugustDG/dotfiles/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -66,7 +67,7 @@ func runSync(opts syncOptions, args []string) error {
 		return err
 	}
 	if !anySynced && !synced {
-		fmt.Println("Everything clean and pushed.")
+		tui.OK("Everything clean and pushed.")
 	}
 	return nil
 }
@@ -120,12 +121,12 @@ func syncRepo(path, name, message string, dryRun bool) (bool, error) {
 				return synced, fmt.Errorf("%s has changes on a detached HEAD that diverges from every local branch; check out a branch first", name)
 			}
 			if dryRun {
-				fmt.Printf("%s: would attach detached HEAD to %s (fast-forward), then commit\n", name, branch)
+				tui.Info("%s: would attach detached HEAD to %s (fast-forward), then commit", name, branch)
 			} else {
 				if err := gitops.AttachBranch(path, branch); err != nil {
 					return synced, fmt.Errorf("%s: attach to %s: %w", name, branch, err)
 				}
-				fmt.Printf("%s: attached detached HEAD to %s\n", name, branch)
+				tui.OK("%s: attached detached HEAD to %s", name, branch)
 			}
 		}
 		if dryRun {
@@ -133,7 +134,7 @@ func syncRepo(path, name, message string, dryRun bool) (bool, error) {
 			if msg == "" {
 				msg = syncMessage(gitops.ChangedPaths(path))
 			}
-			fmt.Printf("%s: would commit (%s)\n", name, msg)
+			tui.Info("%s: would commit (%s)", name, msg)
 		} else {
 			if err := gitops.Add(path, "-A"); err != nil {
 				return synced, fmt.Errorf("%s: stage: %w", name, err)
@@ -145,19 +146,19 @@ func syncRepo(path, name, message string, dryRun bool) (bool, error) {
 			if err := gitops.Commit(path, msg); err != nil {
 				return synced, fmt.Errorf("%s: commit: %w", name, err)
 			}
-			fmt.Printf("%s: committed (%s)\n", name, msg)
+			tui.OK("%s: committed (%s)", name, msg)
 		}
 		synced = true
 	}
 
 	if gitops.HasUnpushed(path) {
 		if dryRun {
-			fmt.Printf("%s: would push\n", name)
+			tui.Info("%s: would push", name)
 		} else {
 			if err := gitops.Push(path); err != nil {
 				return synced, fmt.Errorf("%s: push: %w", name, err)
 			}
-			fmt.Printf("%s: pushed\n", name)
+			tui.OK("%s: pushed", name)
 		}
 		synced = true
 	}
@@ -178,7 +179,7 @@ func syncRoot(dotfilesDir string, stagePaths []string, message string, dryRun bo
 			if msg == "" {
 				msg = syncMessage(gitops.ChangedPaths(dotfilesDir))
 			}
-			fmt.Printf("dotfiles: would commit (%s)\n", msg)
+			tui.Info("dotfiles: would commit (%s)", msg)
 			synced = true
 		} else {
 			if err := gitops.Add(dotfilesDir, stagePaths...); err != nil {
@@ -192,7 +193,7 @@ func syncRoot(dotfilesDir string, stagePaths []string, message string, dryRun bo
 				if err := gitops.Commit(dotfilesDir, msg); err != nil {
 					return false, fmt.Errorf("dotfiles: commit: %w", err)
 				}
-				fmt.Printf("dotfiles: committed (%s)\n", msg)
+				tui.OK("dotfiles: committed (%s)", msg)
 				synced = true
 			}
 		}
@@ -200,12 +201,12 @@ func syncRoot(dotfilesDir string, stagePaths []string, message string, dryRun bo
 
 	if gitops.HasUnpushed(dotfilesDir) {
 		if dryRun {
-			fmt.Println("dotfiles: would push")
+			tui.Info("dotfiles: would push")
 		} else {
 			if err := gitops.Push(dotfilesDir); err != nil {
 				return synced, fmt.Errorf("dotfiles: push: %w", err)
 			}
-			fmt.Println("dotfiles: pushed")
+			tui.OK("dotfiles: pushed")
 		}
 		synced = true
 	}

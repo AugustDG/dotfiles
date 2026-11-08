@@ -39,17 +39,17 @@ func runDoctor() error {
 
 	modules, err := config.DiscoverModules(dotfilesDir)
 	if err != nil {
-		checks = append(checks, tui.Check{Name: "modules", Level: tui.CheckFail, Detail: err.Error()})
+		checks = append(checks, tui.Check{Name: "modules", Level: tui.LevelFail, Detail: err.Error()})
 	} else {
 		checks = append(checks, moduleChecks(dotfilesDir, modules)...)
 		checks = append(checks, danglingCheck(dotfilesDir, homeDir, modules))
 	}
 
-	fmt.Println(tui.RenderChecks("dotfiles doctor", checks))
+	fmt.Println(tui.RenderChecks("Health check", checks))
 
 	fails := 0
 	for _, c := range checks {
-		if c.Level == tui.CheckFail {
+		if c.Level == tui.LevelFail {
 			fails++
 		}
 	}
@@ -71,16 +71,16 @@ func environmentChecks(dotfilesDir, homeDir string) []tui.Check {
 	)
 
 	if _, err := os.Stat(filepath.Join(dotfilesDir, ".git")); err != nil {
-		checks = append(checks, tui.Check{Name: "repo", Level: tui.CheckFail,
+		checks = append(checks, tui.Check{Name: "repo", Level: tui.LevelFail,
 			Detail: dotfilesDir + " is not a git repository"})
 	} else {
 		checks = append(checks, repoStateCheck(dotfilesDir))
 	}
 
 	if gitops.IsGHAuthenticated() {
-		checks = append(checks, tui.Check{Name: "github auth", Level: tui.CheckOK, Detail: "authenticated"})
+		checks = append(checks, tui.Check{Name: "github auth", Level: tui.LevelOK, Detail: "authenticated"})
 	} else {
-		checks = append(checks, tui.Check{Name: "github auth", Level: tui.CheckWarn,
+		checks = append(checks, tui.Check{Name: "github auth", Level: tui.LevelWarn,
 			Detail: "not logged in (run: gh auth login)"})
 	}
 
@@ -90,11 +90,11 @@ func environmentChecks(dotfilesDir, homeDir string) []tui.Check {
 
 func toolCheck(name string, required bool) tui.Check {
 	if path, err := exec.LookPath(name); err == nil {
-		return tui.Check{Name: name, Level: tui.CheckOK, Detail: path}
+		return tui.Check{Name: name, Level: tui.LevelOK, Detail: path}
 	}
-	level := tui.CheckWarn
+	level := tui.LevelWarn
 	if required {
-		level = tui.CheckFail
+		level = tui.LevelFail
 	}
 	return tui.Check{Name: name, Level: level, Detail: "not found on PATH"}
 }
@@ -102,7 +102,7 @@ func toolCheck(name string, required bool) tui.Check {
 func repoStateCheck(dotfilesDir string) tui.Check {
 	branch, err := gitops.CurrentBranch(dotfilesDir)
 	if err != nil {
-		return tui.Check{Name: "repo state", Level: tui.CheckWarn, Detail: "detached HEAD"}
+		return tui.Check{Name: "repo state", Level: tui.LevelWarn, Detail: "detached HEAD"}
 	}
 	ahead, behind := gitops.AheadBehind(dotfilesDir)
 	dirty := gitops.IsDirty(dotfilesDir)
@@ -121,37 +121,37 @@ func repoStateCheck(dotfilesDir string) tui.Check {
 		notes = append(notes, fmt.Sprintf("%d behind", behind))
 	}
 	if len(notes) == 0 {
-		return tui.Check{Name: "repo state", Level: tui.CheckOK, Detail: branch + ", clean and pushed"}
+		return tui.Check{Name: "repo state", Level: tui.LevelOK, Detail: branch + ", clean and pushed"}
 	}
-	return tui.Check{Name: "repo state", Level: tui.CheckWarn,
+	return tui.Check{Name: "repo state", Level: tui.LevelWarn,
 		Detail: branch + ": " + strings.Join(notes, ", ")}
 }
 
 func shellCheck() tui.Check {
 	shell := os.Getenv("SHELL")
 	if strings.HasSuffix(shell, "zsh") {
-		return tui.Check{Name: "default shell", Level: tui.CheckOK, Detail: shell}
+		return tui.Check{Name: "default shell", Level: tui.LevelOK, Detail: shell}
 	}
 	detail := "not zsh"
 	if shell != "" {
 		detail = shell + " (expected zsh)"
 	}
-	return tui.Check{Name: "default shell", Level: tui.CheckWarn, Detail: detail}
+	return tui.Check{Name: "default shell", Level: tui.LevelWarn, Detail: detail}
 }
 
 func localBinCheck() tui.Check {
 	bin := platform.LocalBin()
 	if platform.PathContains(bin) {
-		return tui.Check{Name: "~/.local/bin", Level: tui.CheckOK, Detail: "on PATH"}
+		return tui.Check{Name: "~/.local/bin", Level: tui.LevelOK, Detail: "on PATH"}
 	}
-	return tui.Check{Name: "~/.local/bin", Level: tui.CheckWarn, Detail: "not on PATH"}
+	return tui.Check{Name: "~/.local/bin", Level: tui.LevelWarn, Detail: "not on PATH"}
 }
 
 func localRcCheck(homeDir string) tui.Check {
 	if _, err := os.Stat(filepath.Join(homeDir, ".zprofile.local")); err == nil {
-		return tui.Check{Name: "~/.zprofile.local", Level: tui.CheckOK, Detail: "present"}
+		return tui.Check{Name: "~/.zprofile.local", Level: tui.LevelOK, Detail: "present"}
 	}
-	return tui.Check{Name: "~/.zprofile.local", Level: tui.CheckWarn,
+	return tui.Check{Name: "~/.zprofile.local", Level: tui.LevelWarn,
 		Detail: "missing (machine-local secrets go here)"}
 }
 
@@ -176,12 +176,12 @@ func moduleChecks(dotfilesDir string, modules []config.Module) []tui.Check {
 		}
 
 		var notes []string
-		level := tui.CheckOK
+		level := tui.LevelOK
 
 		if formulae != nil {
 			if missing := bootstrap.MissingDeps(mod.Deps, formulae, casks); len(missing) > 0 {
 				notes = append(notes, "missing deps: "+strings.Join(missing, ", "))
-				level = tui.CheckWarn
+				level = tui.LevelWarn
 			}
 		}
 		if mod.HasSubmodule && len(mod.SubmodulePaths) > 0 {
@@ -189,11 +189,11 @@ func moduleChecks(dotfilesDir string, modules []config.Module) []tui.Check {
 			switch state {
 			case "not-init":
 				notes = append(notes, "submodule not initialised")
-				level = tui.CheckWarn
+				level = tui.LevelWarn
 			case "dirty":
 				notes = append(notes, "submodule has local changes")
-				if level == tui.CheckOK {
-					level = tui.CheckWarn
+				if level == tui.LevelOK {
+					level = tui.LevelWarn
 				}
 			}
 		}
@@ -206,7 +206,7 @@ func moduleChecks(dotfilesDir string, modules []config.Module) []tui.Check {
 	}
 
 	if notInstalled > 0 {
-		checks = append(checks, tui.Check{Name: "modules", Level: tui.CheckOK,
+		checks = append(checks, tui.Check{Name: "modules", Level: tui.LevelOK,
 			Detail: fmt.Sprintf("%d not installed (skipped)", notInstalled)})
 	}
 	return checks
@@ -216,8 +216,8 @@ func danglingCheck(dotfilesDir, homeDir string, modules []config.Module) tui.Che
 	roots := stow.ScanRoots(dotfilesDir, homeDir, moduleNames(modules))
 	dangling := stow.FindDangling(dotfilesDir, homeDir, roots)
 	if len(dangling) == 0 {
-		return tui.Check{Name: "dangling links", Level: tui.CheckOK, Detail: "none"}
+		return tui.Check{Name: "dangling links", Level: tui.LevelOK, Detail: "none"}
 	}
-	return tui.Check{Name: "dangling links", Level: tui.CheckWarn,
+	return tui.Check{Name: "dangling links", Level: tui.LevelWarn,
 		Detail: fmt.Sprintf("%d found (run: dotfiles clean)", len(dangling))}
 }

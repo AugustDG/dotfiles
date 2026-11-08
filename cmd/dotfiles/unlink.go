@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/AugustDG/dotfiles/internal/config"
 	"github.com/AugustDG/dotfiles/internal/platform"
 	"github.com/AugustDG/dotfiles/internal/stow"
+	"github.com/AugustDG/dotfiles/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -29,15 +31,18 @@ func unlinkCmd() *cobra.Command {
 				return err
 			}
 
+			tasks := make([]tui.Task, 0, len(names))
 			for _, name := range names {
-				fmt.Printf("Unstowing %s... ", name)
-				if err := stow.Unstow(dotfilesDir, name, homeDir); err != nil {
-					fmt.Printf("failed: %s\n", err)
-				} else {
-					fmt.Println("done")
-				}
+				tasks = append(tasks, tui.Task{
+					Title: "Unstow " + name,
+					Run:   func(context.Context) error { return stow.Unstow(dotfilesDir, name, homeDir) },
+				})
 			}
-			return nil
+			errs, err := tui.RunTasks("Unlinking modules", tasks)
+			if err != nil {
+				return err
+			}
+			return firstError(errs)
 		},
 	}
 

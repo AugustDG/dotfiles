@@ -3,7 +3,7 @@ description = "Neovim config (Lazy plugin manager)"
 os = ["darwin", "linux"]
 
 [deps]
-brew = ["neovim"]
+brew = ["neovim", "ripgrep", "fd", "yazi"]
 
 [hooks]
-post_install = "nvim --headless \"+Lazy! sync\" +qa"
+post_install = "nvim --headless \"+Lazy! sync\" \"+Lazy! load mason-tool-installer.nvim\" +MasonToolsInstallSync +TSInstallConfigured +qa"

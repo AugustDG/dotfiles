@@ -11,6 +11,7 @@ import (
 	gitops "github.com/AugustDG/dotfiles/internal/git"
 	"github.com/AugustDG/dotfiles/internal/platform"
 	"github.com/AugustDG/dotfiles/internal/stow"
+	"github.com/AugustDG/dotfiles/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -90,12 +91,12 @@ func runEject(names []string, keepFiles, withSubmodules bool) error {
 			return err
 		}
 		if keepFiles {
-			fmt.Printf("Ejected module %q; files kept in $HOME.\n", mod.Name)
+			tui.OK("Ejected %s; files kept in $HOME", mod.Name)
 		} else {
-			fmt.Printf("Ejected module %q.\n", mod.Name)
+			tui.OK("Ejected %s", mod.Name)
 		}
 		for _, s := range skipped {
-			fmt.Printf("  skipped %s\n", s)
+			tui.Item("skipped %s", s)
 		}
 	}
 	return nil

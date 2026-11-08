@@ -1,10 +1,6 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"strings"
-
 	"github.com/AugustDG/dotfiles/internal/bootstrap"
 	"github.com/AugustDG/dotfiles/internal/config"
 	"github.com/AugustDG/dotfiles/internal/platform"
@@ -46,19 +42,13 @@ func runDeps(args []string) error {
 
 	var tasks []tui.Task
 	for _, mod := range targets {
-		names := bootstrap.DepNames(mod.Deps)
-		if len(names) == 0 {
-			continue
+		if len(bootstrap.DepNames(mod.Deps)) > 0 {
+			tasks = append(tasks, bootstrap.DepsTask(mod))
 		}
-		mod := mod
-		tasks = append(tasks, tui.Task{
-			Title: fmt.Sprintf("%s: %s", mod.Name, strings.Join(names, ", ")),
-			Run:   func(context.Context) error { return bootstrap.InstallDeps(mod.Deps) },
-		})
 	}
 
 	if len(tasks) == 0 {
-		fmt.Println("No dependencies to install.")
+		tui.Info("No dependencies to install.")
 		return nil
 	}
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/AugustDG/dotfiles/internal/bootstrap"
 	"github.com/AugustDG/dotfiles/internal/platform"
+	"github.com/AugustDG/dotfiles/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -22,8 +23,12 @@ func initCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dotfilesDir := platform.DotfilesDir()
 
-			fmt.Println()
-			if err := bootstrap.NewInstaller(nil, dotfilesDir).RunBootstrap(); err != nil {
+			tasks := bootstrap.NewInstaller(dotfilesDir).BootstrapTasks()
+			errs, err := tui.RunTasks("Bootstrapping", tasks)
+			if err != nil {
+				return err
+			}
+			if err := tui.FatalError(tasks, errs); err != nil {
 				return fmt.Errorf("bootstrap failed: %w", err)
 			}
 			fmt.Println()

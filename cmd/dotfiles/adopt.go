@@ -11,6 +11,7 @@ import (
 
 	"github.com/AugustDG/dotfiles/internal/platform"
 	"github.com/AugustDG/dotfiles/internal/stow"
+	"github.com/AugustDG/dotfiles/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +47,7 @@ func runAdopt(name string, paths []string) error {
 		return err
 	}
 	if created {
-		fmt.Printf("Created module %q\n", name)
+		tui.OK("Created module %s", name)
 	}
 
 	absRepo, _ := filepath.Abs(dotfilesDir)
@@ -72,7 +73,7 @@ func runAdopt(name string, paths []string) error {
 	}
 
 	if len(moves) == 0 {
-		fmt.Println("Nothing to adopt.")
+		tui.Info("Nothing to adopt.")
 		return nil
 	}
 
@@ -80,7 +81,7 @@ func runAdopt(name string, paths []string) error {
 		rollback()
 		return fmt.Errorf("stow %s: %w (changes rolled back)", name, err)
 	}
-	fmt.Printf("Adopted %d path(s) into %q and stowed.\n", len(moves), name)
+	tui.OK("Adopted %d path(s) into %s and stowed", len(moves), name)
 	return nil
 }
 
@@ -109,7 +110,7 @@ func adoptPath(p, homeDir, moduleDir, absRepo string) (*adoptMove, error) {
 				dest = filepath.Join(filepath.Dir(abs), dest)
 			}
 			if within(filepath.Clean(dest), absRepo) {
-				fmt.Printf("skip %s (already managed)\n", rel)
+				tui.Info("~/%s is already managed", rel)
 				return nil, nil
 			}
 		}
@@ -128,7 +129,7 @@ func adoptPath(p, homeDir, moduleDir, absRepo string) (*adoptMove, error) {
 	if err := movePath(abs, dest); err != nil {
 		return nil, fmt.Errorf("move %s: %w", p, err)
 	}
-	fmt.Printf("adopted %s\n", rel)
+	tui.Item("moved ~/%s", rel)
 	return &adoptMove{dest: dest, orig: abs}, nil
 }
 

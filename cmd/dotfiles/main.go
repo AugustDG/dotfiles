@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"os"
 
 	"github.com/AugustDG/dotfiles/internal/runner"
+	"github.com/AugustDG/dotfiles/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -11,16 +13,24 @@ var version = "dev"
 
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
+		switch {
+		case errors.Is(err, tui.ErrAborted):
+			tui.Info("Aborted.")
+		case errors.Is(err, tui.ErrReported):
+		default:
+			tui.Fail("%s", err)
+		}
 		os.Exit(1)
 	}
 }
 
 func newRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "dotfiles",
-		Short:        "Manage dotfiles modules",
-		Version:      version,
-		SilenceUsage: true,
+		Use:           "dotfiles",
+		Short:         "Manage dotfiles modules",
+		Version:       version,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	cmd.PersistentFlags().BoolVarP(&runner.Verbose, "verbose", "v", false, "Show detailed command output")

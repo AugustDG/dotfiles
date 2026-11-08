@@ -44,6 +44,8 @@ func runStatus(check bool) error {
 		return err
 	}
 
+	fmt.Println(tui.Title("Status"))
+	fmt.Println()
 	summary, haveRepo := repoSummary(dotfilesDir)
 	if haveRepo {
 		fmt.Println(tui.RenderRepoSummary(summary))

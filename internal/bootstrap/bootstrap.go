@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -18,200 +19,210 @@ import (
 	"github.com/AugustDG/dotfiles/internal/stow"
 	"github.com/AugustDG/dotfiles/internal/syspkg"
 	"github.com/AugustDG/dotfiles/internal/tui"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 type Installer struct {
-	program     *tea.Program
 	dotfilesDir string
 	homeDir     string
-	Verbose     bool
 }
 
-func NewInstaller(p *tea.Program, dotfilesDir string) *Installer {
+func NewInstaller(dotfilesDir string) *Installer {
 	return &Installer{
-		program:     p,
 		dotfilesDir: dotfilesDir,
 		homeDir:     platform.HomeDir(),
 	}
 }
 
-func (inst *Installer) send(msg tea.Msg) {
-	if inst.program != nil {
-		inst.program.Send(msg)
-	}
-}
-
-func (inst *Installer) bootstrapStep(name string, fn func() error) error {
-	if inst.program == nil {
-		fmt.Printf("  ... %s", name)
-	} else {
-		inst.send(tui.BootstrapStepMsg{Step: name})
-	}
-	err := fn()
-	if inst.program == nil {
-		if err != nil {
-			fmt.Printf(" — failed: %s\n", err)
-		} else {
-			fmt.Print(" ✓\n")
-		}
-	} else {
-		inst.send(tui.BootstrapStepMsg{Step: name, Done: true, Err: err})
-	}
-	return err
-}
-
-func (inst *Installer) RunBootstrap() error {
+// BootstrapTasks returns the steps that set up the toolchain before modules
+// are linked. A Homebrew failure stops the run; other steps are best-effort.
+func (inst *Installer) BootstrapTasks() []tui.Task {
+	var tasks []tui.Task
 	if runtime.GOOS == "linux" {
-		_ = inst.bootstrapStep("Install Linux prerequisites", func() error {
-			return syspkg.InstallPrereqs()
+		tasks = append(tasks, tui.Task{
+			Title:       "Install Linux prerequisites",
+			Run:         func(context.Context) error { return syspkg.InstallPrereqs() },
+			Interactive: needsSudo(),
 		})
 	}
 
-	if err := inst.bootstrapStep("Install Homebrew", func() error {
-		if brew.IsInstalled() {
-			return nil
-		}
-		if err := brew.Install(); err != nil {
-			return err
-		}
-		brew.EnsureOnPath()
-		return nil
-	}); err != nil {
-		return fmt.Errorf("homebrew install failed: %w", err)
-	}
-
-	brew.EnsureOnPath()
-
-	_ = inst.bootstrapStep("Install core packages", func() error {
-		return brew.InstallPackages(orDefault(inst.manifest().CoreBrew, CoreBrewPackages))
-	})
-
-	_ = inst.bootstrapStep("GitHub auth", func() error {
-		if gitops.IsGHAuthenticated() {
-			return nil
-		}
-		if !platform.HasTTY() {
-			return nil
-		}
-		return gitops.GHAuthLogin()
-	})
-
-	_ = inst.bootstrapStep("Set default shell to zsh", func() error {
-		return setDefaultShell()
-	})
-
-	_ = inst.bootstrapStep("Clone dotfiles repo", func() error {
-		if _, err := os.Stat(filepath.Join(inst.dotfilesDir, ".git")); err == nil {
-			return nil
-		}
-		return gitops.CloneRepo(gitops.RepoSSH, inst.dotfilesDir)
-	})
-
-	_ = inst.bootstrapStep("Install global packages", func() error {
-		return brew.InstallPackages(orDefault(inst.manifest().GlobalBrew, GlobalBrewPackages))
-	})
-
-	_ = inst.bootstrapStep("Install znap", func() error {
-		znapPath := filepath.Join(inst.homeDir, ZnapDir)
-		if _, err := os.Stat(znapPath); err == nil {
-			return nil
-		}
-		os.MkdirAll(filepath.Dir(znapPath), 0o755)
-		cmd := exec.Command("git", "clone", "--depth", "1", ZnapURL, znapPath)
-		return cmd.Run()
-	})
-
-	_ = inst.bootstrapStep("Install hopper", func() error {
-		if _, err := exec.LookPath("hopper"); err == nil {
-			return nil
-		}
-		return installReleaseBinary(HopperRepo, "hopper")
-	})
-
-	_ = inst.bootstrapStep("Install gho", func() error {
-		if _, err := exec.LookPath("gho"); err == nil {
-			return nil
-		}
-		return installReleaseBinary(GhottoRepo, "gho")
-	})
-
-	_ = inst.bootstrapStep("Backup conflicting files", func() error {
-		return backupConflicts(inst.homeDir, orDefault(inst.manifest().BackupTargets, BackupTargets))
-	})
+	tasks = append(tasks,
+		tui.Task{
+			Title: "Install Homebrew",
+			Run: func(context.Context) error {
+				if !brew.IsInstalled() {
+					if err := brew.Install(); err != nil {
+						return err
+					}
+				}
+				brew.EnsureOnPath()
+				return nil
+			},
+			Interactive: !brew.IsInstalled() && needsSudo(),
+			Fatal:       true,
+		},
+		tui.Task{
+			Title: "Install core packages",
+			Run: func(context.Context) error {
+				return brew.InstallPackages(orDefault(inst.manifest().CoreBrew, CoreBrewPackages))
+			},
+		},
+		tui.Task{
+			Title: "GitHub auth",
+			Run: func(context.Context) error {
+				if gitops.IsGHAuthenticated() || !platform.HasTTY() {
+					return nil
+				}
+				return gitops.GHAuthLogin()
+			},
+			Interactive: platform.HasTTY() && !gitops.IsGHAuthenticated(),
+		},
+		tui.Task{
+			Title:       "Set default shell to zsh",
+			Run:         func(context.Context) error { return setDefaultShell() },
+			Interactive: needsSudo() && !defaultShellIsZsh(),
+		},
+		tui.Task{
+			Title: "Clone dotfiles repo",
+			Run: func(context.Context) error {
+				if _, err := os.Stat(filepath.Join(inst.dotfilesDir, ".git")); err == nil {
+					return nil
+				}
+				return gitops.CloneRepo(gitops.RepoSSH, inst.dotfilesDir)
+			},
+		},
+		tui.Task{
+			Title: "Install global packages",
+			Run: func(context.Context) error {
+				return brew.InstallPackages(orDefault(inst.manifest().GlobalBrew, GlobalBrewPackages))
+			},
+		},
+		tui.Task{
+			Title: "Install znap",
+			Run: func(context.Context) error {
+				znapPath := filepath.Join(inst.homeDir, ZnapDir)
+				if _, err := os.Stat(znapPath); err == nil {
+					return nil
+				}
+				if err := os.MkdirAll(filepath.Dir(znapPath), 0o755); err != nil {
+					return err
+				}
+				return exec.Command("git", "clone", "--depth", "1", ZnapURL, znapPath).Run()
+			},
+		},
+		releaseBinaryTask(HopperRepo, "hopper"),
+		releaseBinaryTask(GhottoRepo, "gho"),
+		tui.Task{
+			Title: "Back up conflicting files",
+			Run: func(context.Context) error {
+				return backupConflicts(inst.homeDir, orDefault(inst.manifest().BackupTargets, BackupTargets))
+			},
+		},
+	)
 
 	for _, local := range []struct{ name, template string }{
 		{".zprofile.local", ZprofileLocalTemplate},
 		{".zshrc.local", ZshrcLocalTemplate},
 	} {
-		_ = inst.bootstrapStep("Create ~/"+local.name, func() error {
-			path := filepath.Join(inst.homeDir, local.name)
-			if _, err := os.Stat(path); err == nil {
+		tasks = append(tasks, tui.Task{
+			Title: "Create ~/" + local.name,
+			Run: func(context.Context) error {
+				path := filepath.Join(inst.homeDir, local.name)
+				if _, err := os.Stat(path); err == nil {
+					return nil
+				}
+				return os.WriteFile(path, []byte(local.template), 0o600)
+			},
+		})
+	}
+	return tasks
+}
+
+func releaseBinaryTask(repo, bin string) tui.Task {
+	return tui.Task{
+		Title: "Install " + bin,
+		Run: func(context.Context) error {
+			if _, err := exec.LookPath(bin); err == nil {
 				return nil
 			}
-			return os.WriteFile(path, []byte(local.template), 0o600)
+			return installReleaseBinary(repo, bin)
+		},
+	}
+}
+
+// ModuleTasks returns the steps that link one module, grouped under its name:
+// init submodules, install deps, stow, then run the post-install hook. A hook
+// failure is reported as a warning since the module is already linked.
+func (inst *Installer) ModuleTasks(mod config.Module, adopt bool) []tui.Task {
+	group := mod.Name
+	currentOS := platform.DetectOS()
+	if !mod.SupportsOS(currentOS) {
+		return []tui.Task{{
+			Group: group,
+			Title: "Link",
+			Run:   func(context.Context) error { return tui.Skipped("not supported on " + currentOS) },
+		}}
+	}
+
+	var tasks []tui.Task
+	if mod.HasSubmodule {
+		tasks = append(tasks, tui.Task{
+			Group: group,
+			Title: "Init submodules",
+			Run: func(context.Context) error {
+				return gitops.InitSubmodules(inst.dotfilesDir, mod.SubmodulePaths)
+			},
 		})
 	}
 
-	return nil
-}
-
-func (inst *Installer) InstallModule(mod config.Module, adopt bool) tui.ModuleResult {
-	currentOS := platform.DetectOS()
-	if !mod.SupportsOS(currentOS) {
-		return tui.ModuleResult{Name: mod.Name, Status: "skipped", Warning: "wrong OS"}
-	}
-
-	if mod.HasSubmodule {
-		inst.send(tui.StepStartMsg{Module: mod.Name, Step: "Init submodules"})
-		err := gitops.InitSubmodules(inst.dotfilesDir, mod.SubmodulePaths)
-		inst.send(tui.StepDoneMsg{Module: mod.Name, Step: "Init submodules", Err: err})
-		if err != nil {
-			return tui.ModuleResult{Name: mod.Name, Status: "failed", Warning: err.Error()}
-		}
-	}
-
 	if !mod.Deps.Empty() {
-		label := fmt.Sprintf("Install %s", strings.Join(DepNames(mod.Deps), ", "))
-		inst.send(tui.StepStartMsg{Module: mod.Name, Step: label})
-		err := InstallDeps(mod.Deps)
-		inst.send(tui.StepDoneMsg{Module: mod.Name, Step: label, Err: err})
-		if err != nil {
-			return tui.ModuleResult{Name: mod.Name, Status: "failed", Warning: err.Error()}
-		}
+		tasks = append(tasks, DepsTask(mod))
 	}
 
-	inst.send(tui.StepStartMsg{Module: mod.Name, Step: "Stow"})
-	var err error
-	if adopt {
-		err = stow.StowAdopt(inst.dotfilesDir, mod.Name, inst.homeDir)
-	} else {
-		err = stow.Stow(inst.dotfilesDir, mod.Name, inst.homeDir)
-	}
-	inst.send(tui.StepDoneMsg{Module: mod.Name, Step: "Stow", Err: err})
-	if err != nil {
-		result := tui.ModuleResult{Name: mod.Name, Status: "failed", Warning: err.Error()}
-		var conflict *stow.ConflictError
-		if errors.As(err, &conflict) && !adopt {
-			result.Hint = "rerun with --adopt to absorb the existing files into the repo, or back them up first"
-		}
-		return result
-	}
+	tasks = append(tasks, tui.Task{
+		Group: group,
+		Title: "Stow",
+		Run: func(context.Context) error {
+			if adopt {
+				return stow.StowAdopt(inst.dotfilesDir, mod.Name, inst.homeDir)
+			}
+			err := stow.Stow(inst.dotfilesDir, mod.Name, inst.homeDir)
+			var conflict *stow.ConflictError
+			if errors.As(err, &conflict) {
+				return tui.WithHint(err, "rerun with --adopt to absorb the existing files into the repo, or back them up first")
+			}
+			return err
+		},
+	})
 
 	if mod.Hooks.PostInstall != "" {
-		hookCmd := platform.ExpandHome(mod.Hooks.PostInstall)
-		inst.send(tui.StepStartMsg{Module: mod.Name, Step: "Post-install hook"})
-		cmd := exec.Command("bash", "-c", hookCmd)
-		runner.ConfigureCmd(cmd)
-		err := cmd.Run()
-		inst.send(tui.StepDoneMsg{Module: mod.Name, Step: "Post-install hook", Err: err})
-		if err != nil {
-			return tui.ModuleResult{Name: mod.Name, Status: "linked", Warning: "hook failed: " + err.Error()}
-		}
+		tasks = append(tasks, tui.Task{
+			Group: group,
+			Title: "Post-install hook",
+			Run: func(ctx context.Context) error {
+				cmd := exec.CommandContext(ctx, "bash", "-c", platform.ExpandHome(mod.Hooks.PostInstall))
+				runner.ConfigureCmd(cmd)
+				return tui.Warning(cmd.Run())
+			},
+		})
 	}
-
-	return tui.ModuleResult{Name: mod.Name, Status: "linked"}
+	return tasks
 }
+
+// DepsTask returns the task that installs a module's dependencies.
+func DepsTask(mod config.Module) tui.Task {
+	title := "Install dependencies"
+	if names := DepNames(mod.Deps); len(names) > 0 {
+		title = "Install " + strings.Join(names, ", ")
+	}
+	return tui.Task{
+		Group:       mod.Name,
+		Title:       title,
+		Run:         func(context.Context) error { return InstallDeps(mod.Deps) },
+		Interactive: DepsNeedSudo(mod.Deps),
+	}
+}
+
+func needsSudo() bool { return len(runner.SudoPrefix()) > 0 }
 
 // manifest loads the bootstrap section of dotfiles.toml, returning a zero value
 // when the manifest is absent so callers fall back to built-in defaults.
@@ -339,6 +350,13 @@ func setDefaultShell() error {
 		return runner.Sudo("chsh", "-s", zshBin).Run()
 	}
 	return runner.Sudo("chsh", "-s", zshBin, user).Run()
+}
+
+// defaultShellIsZsh reports whether the target user's login shell is already
+// the zsh setDefaultShell would choose.
+func defaultShellIsZsh() bool {
+	zshBin := findZsh()
+	return zshBin != "" && currentLoginShell(targetUser()) == zshBin
 }
 
 func findZsh() string {

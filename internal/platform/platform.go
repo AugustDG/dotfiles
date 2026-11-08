@@ -77,9 +77,10 @@ func PathContains(dir string) bool {
 	return false
 }
 
-// IsInteractive returns true if stdin is connected to a terminal.
+// IsInteractive returns true if both stdin and stdout are terminals, so the
+// CLI can read keys and render a live TUI.
 func IsInteractive() bool {
-	return term.IsTerminal(int(os.Stdin.Fd()))
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
 }
 
 // HasTTY returns true if /dev/tty is available (a real terminal exists even

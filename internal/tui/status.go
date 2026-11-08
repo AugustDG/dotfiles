@@ -5,14 +5,6 @@ import (
 	"strings"
 
 	"github.com/AugustDG/dotfiles/internal/config"
-	"github.com/charmbracelet/lipgloss"
-)
-
-var (
-	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
-	yesStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	noStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-	naStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 )
 
 type ModuleStatus struct {
@@ -43,35 +35,33 @@ func (s RepoSummary) Clean() bool {
 // RenderRepoSummary renders a one-line summary of the repo state.
 func RenderRepoSummary(s RepoSummary) string {
 	if s.Detached {
-		return "  " + headerStyle.Render("repo") + "  " + noStyle.Render("detached HEAD")
+		return "  " + titleStyle.Render("repo") + "  " + failStyle.Render("detached HEAD")
 	}
 	parts := []string{}
 	if s.Dirty {
-		parts = append(parts, noStyle.Render("dirty"))
+		parts = append(parts, failStyle.Render("dirty"))
 	}
 	if s.NoUpstream {
-		parts = append(parts, noStyle.Render("no upstream"))
+		parts = append(parts, failStyle.Render("no upstream"))
 	}
 	if s.Ahead > 0 {
-		parts = append(parts, noStyle.Render(fmt.Sprintf("%d unpushed", s.Ahead)))
+		parts = append(parts, failStyle.Render(fmt.Sprintf("%d unpushed", s.Ahead)))
 	}
 	if s.Behind > 0 {
-		parts = append(parts, noStyle.Render(fmt.Sprintf("%d behind", s.Behind)))
+		parts = append(parts, failStyle.Render(fmt.Sprintf("%d behind", s.Behind)))
 	}
 	if len(parts) == 0 {
-		parts = append(parts, yesStyle.Render("clean and pushed"))
+		parts = append(parts, okStyle.Render("clean and pushed"))
 	}
-	return "  " + headerStyle.Render(s.Branch) + "  " + strings.Join(parts, descStyle.Render(", "))
+	return "  " + titleStyle.Render(s.Branch) + "  " + strings.Join(parts, mutedStyle.Render(", "))
 }
 
 func RenderStatusTable(statuses []ModuleStatus) string {
 	var b strings.Builder
 
-	b.WriteString(headerStyle.Render(fmt.Sprintf("  %-12s %-8s %-8s %-10s %-10s %s",
+	b.WriteString(groupStyle.Render(fmt.Sprintf("  %-12s %-8s %-8s %-10s %-10s %s",
 		"Module", "Stowed", "Changes", "Submodule", "Deps", "Description")))
-	b.WriteString("\n")
-	b.WriteString(separatorStyle.Render("  " + strings.Repeat("─", 73)))
-	b.WriteString("\n")
+	b.WriteString("\n  " + Rule(73) + "\n")
 
 	for _, s := range statuses {
 		// Modules that don't support this OS can't be installed here — dim the
@@ -82,42 +72,42 @@ func RenderStatusTable(statuses []ModuleStatus) string {
 				desc += fmt.Sprintf(" (requires %s)", strings.Join(s.Module.OS, "/"))
 			}
 			b.WriteString(fmt.Sprintf("  %s %s %s %s %s %s\n",
-				padStyled(disabledStyle.Render(s.Module.Name), 12),
-				padStyled(naStyle.Render("n/a"), 8),
-				padStyled(changesCell(s), 8),
-				padStyled(naStyle.Render("—"), 10),
-				padStyled(naStyle.Render("—"), 10),
-				disabledStyle.Render(desc),
+				pad(mutedStyle.Render(s.Module.Name), 12),
+				pad(mutedStyle.Render("n/a"), 8),
+				pad(changesCell(s), 8),
+				pad(mutedStyle.Render("—"), 10),
+				pad(mutedStyle.Render("—"), 10),
+				mutedStyle.Render(desc),
 			))
 			continue
 		}
 
-		stowed := noStyle.Render("no")
+		stowed := failStyle.Render("no")
 		if s.Module.IsStowed {
-			stowed = yesStyle.Render("yes")
+			stowed = okStyle.Render("yes")
 		}
 
-		sub := naStyle.Render("—")
+		sub := mutedStyle.Render("—")
 		if s.Module.HasSubmodule {
 			switch s.SubmoduleState {
 			case "clean":
-				sub = yesStyle.Render("clean")
+				sub = okStyle.Render("clean")
 			case "dirty":
-				sub = failureStyle.Render("dirty")
+				sub = failStyle.Render("dirty")
 			case "not-init":
-				sub = skippedStyle.Render("not-init")
+				sub = warnStyle.Render("not-init")
 			default:
-				sub = naStyle.Render("unknown")
+				sub = mutedStyle.Render("unknown")
 			}
 		}
 
 		b.WriteString(fmt.Sprintf("  %-12s %s %s %s %s %s\n",
 			s.Module.Name,
-			padStyled(stowed, 8),
-			padStyled(changesCell(s), 8),
-			padStyled(sub, 10),
-			padStyled(depsCell(s), 10),
-			descStyle.Render(s.Module.Description),
+			pad(stowed, 8),
+			pad(changesCell(s), 8),
+			pad(sub, 10),
+			pad(depsCell(s), 10),
+			textStyle.Render(s.Module.Description),
 		))
 	}
 
@@ -126,33 +116,23 @@ func RenderStatusTable(statuses []ModuleStatus) string {
 
 func changesCell(s ModuleStatus) string {
 	if s.Dirty {
-		return failureStyle.Render("dirty")
+		return failStyle.Render("dirty")
 	}
 	if !s.Compatible {
-		return naStyle.Render("clean")
+		return mutedStyle.Render("clean")
 	}
-	return yesStyle.Render("clean")
+	return okStyle.Render("clean")
 }
 
 func depsCell(s ModuleStatus) string {
 	if s.Module.Deps.Empty() {
-		return naStyle.Render("—")
+		return mutedStyle.Render("—")
 	}
 	if !s.DepsChecked {
-		return naStyle.Render("?")
+		return mutedStyle.Render("?")
 	}
 	if len(s.DepsMissing) == 0 {
-		return yesStyle.Render("ok")
+		return okStyle.Render("ok")
 	}
-	return failureStyle.Render(fmt.Sprintf("%d missing", len(s.DepsMissing)))
-}
-
-// padStyled left-aligns a styled (ANSI-wrapped) string to a visible width,
-// since %-Ns counts escape bytes. It pads based on the rendered cell width.
-func padStyled(s string, width int) string {
-	visible := lipgloss.Width(s)
-	if visible >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-visible)
+	return failStyle.Render(fmt.Sprintf("%d missing", len(s.DepsMissing)))
 }

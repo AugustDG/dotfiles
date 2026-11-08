@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/AugustDG/dotfiles/internal/platform"
+	"github.com/AugustDG/dotfiles/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -36,8 +37,8 @@ func addCmd() *cobra.Command {
 			if !created {
 				return fmt.Errorf("module %q already exists at %s", name, dir)
 			}
-			fmt.Printf("Created module %q at %s\n", name, dir)
-			fmt.Printf("Add files, then run: dotfiles link %s\n", name)
+			tui.OK("Created module %s at %s", name, dir)
+			tui.Item("add files, then run: dotfiles link %s", name)
 			return nil
 		},
 	}

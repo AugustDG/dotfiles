@@ -58,9 +58,9 @@ func runSelfUpdate() error {
 		return err
 	}
 
-	fmt.Printf("Installed to %s\n", target)
+	tui.OK("Installed to %s", target)
 	if v := binaryVersion(target); v != "" {
-		fmt.Printf("Now running %s\n", v)
+		tui.Item("now running %s", v)
 	}
 	return nil
 }

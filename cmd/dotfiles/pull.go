@@ -81,7 +81,9 @@ func runPull(args []string) error {
 }
 
 // firstError returns the first non-nil error in errs, wrapped with a count of
-// how many tasks failed, or nil if all succeeded.
+// how many tasks failed, or nil if all succeeded. errs come from
+// tui.RunTasks, which already displayed them, so the result is marked
+// reported.
 func firstError(errs []error) error {
 	failed := 0
 	var first error
@@ -97,7 +99,7 @@ func firstError(errs []error) error {
 		return nil
 	}
 	if failed == 1 {
-		return first
+		return tui.Reported(first)
 	}
-	return fmt.Errorf("%d steps failed; first: %w", failed, first)
+	return tui.Reported(fmt.Errorf("%d steps failed; first: %w", failed, first))
 }

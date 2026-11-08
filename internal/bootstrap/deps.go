@@ -5,6 +5,7 @@ import (
 
 	"github.com/AugustDG/dotfiles/internal/brew"
 	"github.com/AugustDG/dotfiles/internal/config"
+	"github.com/AugustDG/dotfiles/internal/runner"
 	"github.com/AugustDG/dotfiles/internal/syspkg"
 )
 
@@ -57,6 +58,15 @@ func MissingDeps(d config.Deps, formulae, casks map[string]bool) []string {
 		}
 	}
 	return missing
+}
+
+// DepsNeedSudo reports whether installing d runs apt or dnf through sudo,
+// which may prompt for a password.
+func DepsNeedSudo(d config.Deps) bool {
+	if runtime.GOOS != "linux" || len(runner.SudoPrefix()) == 0 {
+		return false
+	}
+	return (syspkg.HasApt() && len(d.Apt) > 0) || (syspkg.HasDnf() && len(d.Dnf) > 0)
 }
 
 // InstallDeps installs a module's dependencies using the package managers

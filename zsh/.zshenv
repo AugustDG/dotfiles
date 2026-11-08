@@ -1,4 +1,4 @@
-. "$HOME/.cargo/env"
+[[ -f "$HOME/.cargo/env" ]] && . "$HOME/.cargo/env"
 
 # Core PATH
 export PATH="$HOME/bin:$PATH"

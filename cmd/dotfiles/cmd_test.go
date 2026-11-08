@@ -202,24 +202,25 @@ func mustWriteFile(t *testing.T, path, content string) {
 }
 
 func TestLinkResultsError(t *testing.T) {
-	if err := linkResultsError(nil); err != nil {
+	if err := linkResultsError(nil, nil); err != nil {
 		t.Errorf("no results should be nil, got %v", err)
 	}
-	ok := []tui.ModuleResult{{Name: "a", Status: "linked"}, {Name: "b", Status: "skipped"}}
-	if err := linkResultsError(ok); err != nil {
+	tasks := []tui.Task{
+		{Group: "a", Title: "Stow"},
+		{Group: "b", Title: "Init submodules"},
+		{Group: "b", Title: "Stow"},
+		{Group: "c", Title: "Stow"},
+	}
+	if err := linkResultsError(tasks, make([]error, len(tasks))); err != nil {
 		t.Errorf("all-ok should be nil, got %v", err)
 	}
-	mixed := []tui.ModuleResult{
-		{Name: "a", Status: "linked"},
-		{Name: "b", Status: "failed"},
-		{Name: "c", Status: "failed"},
-	}
-	err := linkResultsError(mixed)
+	fail := errors.New("boom")
+	err := linkResultsError(tasks, []error{nil, fail, nil, fail})
 	if err == nil {
 		t.Fatal("expected error when a module failed")
 	}
-	if !strings.Contains(err.Error(), "b") || !strings.Contains(err.Error(), "c") {
-		t.Errorf("error should name failed modules, got %q", err.Error())
+	if !strings.Contains(err.Error(), "2 module(s)") || !strings.Contains(err.Error(), "b, c") {
+		t.Errorf("error should count and name failed modules, got %q", err.Error())
 	}
 }
 
