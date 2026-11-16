@@ -15,6 +15,7 @@
 # Tool Use
 
 - Prefer MCP or CLI tools over browser or computer UI automation whenever either can accomplish the task.
+- Run locally installed CLIs directly (e.g. `wrangler`), never through `bunx` or `npx`. Installed tools are listed in `~/.claude/projects/-Users-augusto-pinheiro/memory/local-tools.md`; add new ones there when you find them.
 - Use subagents only for review or research, with read-only access. Never delegate implementation, edits, or other workspace changes to subagents; perform all implementation in the main session.
 
 # Planning
