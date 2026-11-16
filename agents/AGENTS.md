@@ -18,6 +18,10 @@
 - Run locally installed CLIs directly (e.g. `wrangler`), never through `bunx` or `npx`. Installed tools are listed in `~/.claude/projects/-Users-augusto-pinheiro/memory/local-tools.md`; add new ones there when you find them.
 - Use subagents only for review or research, with read-only access. Never delegate implementation, edits, or other workspace changes to subagents; perform all implementation in the main session.
 
+# Coding
+
+- When writing, reviewing or planning code, follow the rules in @~/CODING.md.
+
 # Planning
 
 When acting as a planner:
