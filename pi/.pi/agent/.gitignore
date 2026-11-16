@@ -1,5 +1,6 @@
 # Sensitive credentials
 /auth.json
+/mcp-auth.json
 
 # Runtime state and conversation history
 /sessions/
